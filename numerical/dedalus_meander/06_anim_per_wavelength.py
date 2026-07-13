@@ -25,7 +25,7 @@ import numpy as np
 from channel_lib import (COLORS, FIG_DIR, Params, VL, build_ivp, demodulate,
                          evp_bank_mode, fit_sigma_c, planform_frames, run_ivp,
                          seed_banks, t_filament, set_style, save_fig,
-                         write_mp4)
+                         warp_fill, write_mp4)
 
 plt = set_style()
 
@@ -111,10 +111,7 @@ for idx, (k, m, pf, top, bot, sig, c, g, d) in enumerate(sheet):
     ax.axis('on')
     xg = np.linspace(0, LX / 2.0, pf.shape[0])
     yg = np.linspace(-1, 1, pf.shape[1])
-    ax.contourf(xg, yg, pf.T, levels=np.linspace(-0.9, 0.9, 12),
-                cmap="RdBu_r", extend="both")
-    ax.plot(xg, 1.0 + top, color=COLORS['psi1'], lw=1.2)
-    ax.plot(xg, -1.0 + bot, color=COLORS['psi1'], lw=1.2)
+    warp_fill(ax, xg, yg, pf, top, bot, vlim=0.9)
     ax.set_ylim(-2.4, 2.4)
     ax.set_xlim(0, LX / 2.0)
     ax.set_xticks([])

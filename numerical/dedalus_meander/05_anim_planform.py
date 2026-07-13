@@ -16,7 +16,7 @@ import numpy as np
 
 from channel_lib import (COLORS, Params, build_ivp, demodulate, evp_bank_mode,
                          fit_sigma_c, run_ivp, seed_banks, set_style,
-                         fig_to_rgb, write_mp4)
+                         warp_fill, fig_to_rgb, write_mp4)
 
 plt = set_style()
 
@@ -57,13 +57,8 @@ for i in sel:
 
     fig, ax = plt.subplots(figsize=(9.6, 3.8), dpi=110)
     scale = 0.5 / amp
-    pc = ax.contourf(x2b, y, (scale * res['psis'][i]).T,
-                     levels=np.linspace(-0.55, 0.55, 12), cmap="RdBu_r",
-                     extend="both")
-    top = 1.0 + scale * res['top'][it]
-    bot = -1.0 + scale * res['bot'][it]
-    ax.plot(x2b, top, color=COLORS['psi1'], lw=2.2)
-    ax.plot(x2b, bot, color=COLORS['psi1'], lw=2.2)
+    warp_fill(ax, x2b, y, scale * res['psis'][i],
+              scale * res['top'][it], scale * res['bot'][it])
     ax.axvline(xc, color=COLORS['upstream'], lw=2.2, alpha=0.9)
     ax.annotate("", xy=(2.4, -2.15), xytext=(0.3, -2.15),
                 arrowprops=dict(arrowstyle="-|>", color=COLORS['jet'], lw=3))

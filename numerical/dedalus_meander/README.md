@@ -66,6 +66,13 @@ micromamba run -n dedalus env OMP_NUM_THREADS=1 python 06_anim_per_wavelength.py
 | `06_anim_per_wavelength.py` | **one 2-D movie per seeded wavelength** — each of the 15 fig04 components (k*=0.1…1.5) run alone on the same Lx=20π reach → `figures/per_wavelength/planform_k*.mp4` (+previews), plus `fig08` final-frame contact sheet (the wavelength ladder). Each title carries λ/2b, σ* (grows/decays), c* (upstream/~stationary/downstream) + honest e^{σt} gain. Flags: `--kstars 0.3,0.5,...`, `--friction momentum`, `--frames N`. |
 | `outputs/` | (gitignored; regenerable run data) |
 
+**Planform rendering (`channel_lib.warp_fill`)**: the movies draw ψ′ *inside* the meandering
+channel — the field is solved on the fixed domain y∈[−1,1] (linear theory imposes the bank BC
+at the undeformed wall), but for display it is warped onto the mesh
+Y(x,y)=y+(1+y)/2·d_top(x)+(1−y)/2·d_bot(x) whose edges are the two bank lines, so the colour
+fills the wavy channel exactly instead of a fixed rectangle overlaid by displaced bank curves.
+This is a display-only cartoon (O(amplitude) warp); the physics is unchanged.
+
 Templates & provenance: IVP scaffold after the user's `literature_review/blocking/1983_eddy_straining_mechanism/scripts/shutts_1983.py`;
 EVP idiom after Dedalus `examples/evp_1d_rayleigh_benard`; boundary-field pattern after
 `examples/lbvp_2d_poisson` with the field promoted to a prognostic variable (smoke-tested).

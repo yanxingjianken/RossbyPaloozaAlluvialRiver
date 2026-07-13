@@ -428,6 +428,30 @@ COLORS = {
 }
 
 
+def warp_fill(ax, x2b, y, psi2d, dtop, dbot, vlim=0.55):
+    """Draw a psi' field INSIDE the meandering channel it belongs to.
+
+    Display-only linear warp (clearly a cartoon): the field is solved on the
+    fixed domain y in [-1, 1], but is rendered on the deformed mesh
+    Y(x, y) = y + (1+y)/2 * dtop(x) + (1-y)/2 * dbot(x) whose top/bottom edges
+    are the bank lines y = +1 + dtop, y = -1 + dbot. This makes the coloured
+    field fill the wavy channel exactly (no sticking out / no gaps), instead
+    of a fixed rectangle overlaid by displaced bank curves.
+
+    psi2d: (Nx, Ny) already amplitude-scaled; dtop/dbot: (Nx,) scaled bank
+    displacements (same scale as psi2d).
+    """
+    Nx, Ny = len(x2b), len(y)
+    X2d = np.broadcast_to(x2b, (Ny, Nx))
+    wt = (1.0 + y) / 2.0
+    wb = (1.0 - y) / 2.0
+    Y2d = y[:, None] + wt[:, None] * dtop[None, :] + wb[:, None] * dbot[None, :]
+    ax.pcolormesh(X2d, Y2d, psi2d.T, shading="gouraud", cmap="RdBu_r",
+                  vmin=-vlim, vmax=vlim, rasterized=True)
+    ax.plot(x2b, 1.0 + dtop, color=COLORS["psi1"], lw=2.0)
+    ax.plot(x2b, -1.0 + dbot, color=COLORS["psi1"], lw=2.0)
+
+
 def planform_frames(res, mode_index, kstar, plt, title, t0=0.0):
     """RGB frames of the 2-D planform (psi' contours + erodible banks).
 
@@ -451,11 +475,8 @@ def planform_frames(res, mode_index, kstar, plt, title, t0=0.0):
         scale = 0.5 / max(amp, 1e-300)
         xc = (-np.angle(a_all[i]) / kstar) % Lx / 2.0
         fig, ax = plt.subplots(figsize=(9.8, 3.8), dpi=110)
-        ax.contourf(x2b, y, (scale * res['psis'][i]).T,
-                    levels=np.linspace(-0.55, 0.55, 12), cmap="RdBu_r",
-                    extend="both")
-        ax.plot(x2b, 1.0 + scale * res['top'][i], color=COLORS['psi1'], lw=2.0)
-        ax.plot(x2b, -1.0 + scale * res['bot'][i], color=COLORS['psi1'], lw=2.0)
+        warp_fill(ax, x2b, y, scale * res['psis'][i],
+                  scale * res['top'][i], scale * res['bot'][i])
         ax.axvline(xc, color=COLORS['upstream'], lw=2.0, alpha=0.9)
         xa, aw = 0.02 * Lx, 0.09 * (Lx / 2.0)
         ax.annotate("", xy=(xa + aw, -2.2), xytext=(xa, -2.2),
