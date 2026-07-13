@@ -1,0 +1,16 @@
+# Rossby_Palooza_meet_0630.pdf page 8 ("Bend instability revisited") -- digitized pins
+# of the six dispersion curves.  REBUILD v2: independent re-digitization from 300-dpi
+# page-render crops (scratchpad pin_growthL/R, pin_phaseL/R), 2026-07-12; agrees with
+# the pre-teardown (v1, 2026-07-06, 200-dpi) reads within the stated reading error.
+# reading error ~ +-0.02 in k*, +-0.02 in sigma, +-0.1 in c0.  Panel mapping:
+# growth-left/phase-right = D family at gamma=0.05; growth-right/phase-left = gamma
+# family at D=0.6.  c0 = phase speed at the k*->0 axis edge.  kzero = growth-rate
+# zero crossing.
+# columns: family, D, gamma, kstar_peak, sigma_peak, kzero, c0
+family,D,gamma,kstar_peak,sigma_peak,kzero,c0
+D-family,0.3,0.05,0.21,0.24,0.78,-2.05
+D-family,0.6,0.05,0.29,0.43,1.11,-2.40
+D-family,0.9,0.05,0.43,0.29,1.37,-0.88
+g-family,0.6,0.03,0.24,0.49,1.09,-3.95
+g-family,0.6,0.06,0.31,0.41,1.09,-2.00
+g-family,0.6,0.09,0.37,0.34,1.09,-1.30

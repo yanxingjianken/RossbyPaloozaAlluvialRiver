@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Logs (sync + run logs live locally only)
+logs/
+*.log
+
+# Regenerable Dedalus run data (figures/ ARE tracked: slide-ready deliverables)
+numerical/dedalus_meander/outputs/

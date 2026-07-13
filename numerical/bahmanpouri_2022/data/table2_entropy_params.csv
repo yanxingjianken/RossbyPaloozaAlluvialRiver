@@ -1,0 +1,16 @@
+# Bahmanpouri et al. (2022) Table 2 -- Phi(M) and M for the seven cross sections,
+# from ADCP data.  [Water Resources Research 58, e2021WR031821]
+# method: manual transcription 2026-07-06 from the rendered PDF page 6 (clean text layer).
+# note: Phi(M) equals the ADCP ratio Um/Umax row-by-row.  The FreibergerMulde CS3 row is
+#       internally inconsistent as printed: Phi(M=1.16)=0.594=0.68/1.14 (the ADCP ratio),
+#       not the printed 0.678 (which corresponds to M=2.33).  This is codified as a
+#       required anomaly in bahmanpouri_lib._self_test rather than silently corrected.
+# columns: transect, Um_adcp_ms, Umax_adcp_ms, Umax_entropy_ms, phi, M, aspect_ratio
+transect,Um_adcp_ms,Umax_adcp_ms,Umax_entropy_ms,phi,M,aspect_ratio
+Sajo CS1,0.82,1.12,1.11,0.732,3.24,26.4
+Sajo CS2,0.69,1.14,1.13,0.605,1.30,33.3
+Sajo CS3,0.65,1.06,1.05,0.613,1.40,29.6
+Sajo CS4,0.98,1.35,1.25,0.726,3.12,37.5
+FreibergerMulde CS1,0.57,0.93,0.88,0.611,1.37,18.4
+FreibergerMulde CS2,0.65,0.97,0.82,0.668,2.17,18.6
+FreibergerMulde CS3,0.68,1.14,0.98,0.678,1.16,20.2

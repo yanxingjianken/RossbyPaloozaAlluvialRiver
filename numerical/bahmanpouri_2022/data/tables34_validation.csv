@@ -1,0 +1,15 @@
+# Bahmanpouri et al. (2022) Tables 3-4 -- error percentages for velocity and discharge,
+# plus the printed section anchors from the text (Sec. 4.2).
+# [Water Resources Research 58, e2021WR031821]
+# method: manual transcription 2026-07-06 from rendered PDF pages 8 and 10.
+# anchors (text): Sajo CS1: Usurf_max = 1.113 m/s at x = 17 m (UAV), Q = 11.21 m3/s,
+#                 A = 13.67 m2, Um = 0.82 m/s, Phi = 0.732, M = 3.24.
+#                 FM CS1:   Usurf_max = 0.87 m/s at x = 7.2 m, Q = 5.6 m3/s, A = 9.85 m2,
+#                 Um = 0.57 m/s, Phi(M) = 0.610, M = 1.37; ADCP Umax = 0.93 m/s (UAV-ADCP
+#                 max-velocity error 6%).  FM CS2/CS3 pipeline results are in SI S1 only.
+# columns: transect, scenario, Um_meas_ms, Um_calc_ms, vel_err_pct, Q_meas_m3s, Q_calc_m3s, Q_err_pct
+transect,scenario,Um_meas_ms,Um_calc_ms,vel_err_pct,Q_meas_m3s,Q_calc_m3s,Q_err_pct
+Sajo CS1,parabolic,0.82,0.81,1.22,11.21,11.07,1.22
+Sajo CS1,elliptic,0.82,0.87,6.10,11.21,11.89,6.10
+FreibergerMulde CS1,parabolic,0.57,0.58,1.75,5.60,5.70,1.75
+FreibergerMulde CS1,elliptic,0.57,0.63,10.52,5.60,6.19,10.52
