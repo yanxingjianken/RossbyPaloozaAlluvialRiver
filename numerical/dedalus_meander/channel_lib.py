@@ -549,16 +549,28 @@ def four_panel_frames(res, mode_index, kstar, D, plt, stats, title, t0=0.0):
         mflux = np.max(np.abs(uv)) or 1.0
 
         # figsize*dpi must be EVEN in both dims (libx264 yuv420p): 1188 x 594
-        fig, axs = plt.subplots(2, 2, figsize=(11.0, 5.5), dpi=108)
-        Y2d, _ = _warp(axs[0, 0], psi_tot, dtop, dbot, "RdBu_r", 1.3, COLORS['psi1'])
+        # figsize*dpi must be EVEN in both dims (libx264 yuv420p): 1296 x 594
+        fig, axs = plt.subplots(2, 2, figsize=(12.0, 5.5), dpi=108)
+
+        def _cbar(pc, ax, label):
+            cb = fig.colorbar(pc, ax=ax, fraction=0.045, pad=0.02, shrink=0.92)
+            cb.set_label(label, fontsize=8)
+            cb.ax.tick_params(labelsize=7)
+
+        Y2d, pc0 = _warp(axs[0, 0], psi_tot, dtop, dbot, "RdBu_r", 1.3,
+                         COLORS['psi1'])
         axs[0, 0].contour(X2d, Y2d, psi_tot.T, levels=12, colors="k",
                           linewidths=0.35, alpha=0.45)
         axs[0, 0].set_title(r"$\psi_{\rm total}=\bar\psi+\psi'$  (streamlines)",
                             fontsize=10)
-        _warp(axs[0, 1], psi_p, dtop, dbot, "RdBu_r", 0.55, COLORS['psi1'])
+        _cbar(pc0, axs[0, 0], r"$\psi_{\rm total}$ (nondim, units $b\,U_c$)")
+        _, pc1 = _warp(axs[0, 1], psi_p, dtop, dbot, "RdBu_r", 0.55,
+                       COLORS['psi1'])
         axs[0, 1].set_title(r"$\psi'$  (perturbation)", fontsize=10)
-        _warp(axs[1, 0], uv / mflux, dtop, dbot, "PuOr_r", 1.0, "k")
+        _cbar(pc1, axs[0, 1], r"$\psi'/|\psi'_{\rm bank}|$ (per-frame norm.)")
+        _, pc2 = _warp(axs[1, 0], uv / mflux, dtop, dbot, "PuOr_r", 1.0, "k")
         axs[1, 0].set_title(r"momentum flux $\overline{u'v'}$", fontsize=10)
+        _cbar(pc2, axs[1, 0], r"$u'v'/\max|u'v'|$ (per-frame norm.)")
 
         ax = axs[1, 1]
         ax.axis("off")
@@ -571,12 +583,12 @@ def four_panel_frames(res, mode_index, kstar, D, plt, stats, title, t0=0.0):
             rf"crests  $c^*={stats['c_phase']:+.3f}$  ({cpu})",
             rf"momentum $c_g={stats['c_group']:+.3f}$  ({cgu})",
         ])
-        ax.text(0.02, 0.97, txt, va="top", ha="left", fontsize=10.5,
-                linespacing=1.5, transform=ax.transAxes)
-        ax.text(0.02, 0.45, rf"gain $e^{{\sigma t}}=\times"
+        ax.text(0.02, 0.98, txt, va="top", ha="left", fontsize=10,
+                linespacing=1.4, transform=ax.transAxes)
+        ax.text(0.02, 0.40, rf"gain $e^{{\sigma t}}=\times"
                 rf"{amp / max(a0,1e-300):.2g}$", va="top", ha="left",
                 fontsize=12, color=COLORS['erosion'], transform=ax.transAxes)
-        iax = ax.inset_axes([0.14, 0.06, 0.80, 0.30])
+        iax = ax.inset_axes([0.15, 0.04, 0.78, 0.26])
         iax.plot(ts, logamp, color=COLORS['growth'], lw=1.6)
         iax.plot(ts[i], logamp[i], "o", color=COLORS['erosion'], ms=6)
         iax.axhline(0, color="0.7", lw=0.7)
@@ -585,8 +597,22 @@ def four_panel_frames(res, mode_index, kstar, D, plt, stats, title, t0=0.0):
         iax.tick_params(labelsize=7)
         iax.grid(alpha=0.3)
 
+        fr = stats.get('friction', 'rayleigh')
+        gm = stats.get('gamma', float('nan'))
+        Ev = stats.get('E', float('nan'))
+        footer = (
+            rf"chosen (nondim): $D=\Delta/(U_0+\Delta)={D}$,  "
+            rf"$\gamma=C_f b/H={gm}$,  $E=\varepsilon C_f(1-D)={Ev:.2g}$ ({fr})"
+            "\n"
+            rf"units $b=1$, $U_c\equiv U_0+\Delta=1$  $\Rightarrow$  "
+            rf"$U_0=1-D={1 - D:.1f}$, $\Delta=D={D}$, "
+            rf"$\bar u(y)=1-Dy^2$, $\bar u(\pm b)=U_0={1 - D:.1f}$, "
+            rf"$\beta=\bar\zeta_y=2D={2 * D:.1f}$   "
+            r"($C_f,H,\varepsilon$ enter only via $\gamma,E$)")
+        fig.text(0.5, 0.012, footer, ha="center", va="bottom", fontsize=8.2)
+
         fig.suptitle(title, fontsize=11.5, y=0.995)
-        fig.tight_layout(rect=[0, 0, 1, 0.94])
+        fig.tight_layout(rect=[0, 0.075, 1, 0.94])
         frames.append(fig_to_rgb(fig))
         plt.close(fig)
     return frames

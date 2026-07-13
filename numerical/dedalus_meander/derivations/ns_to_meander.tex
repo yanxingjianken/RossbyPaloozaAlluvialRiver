@@ -185,6 +185,38 @@ the constant positive vorticity gradient --- the channel's \hl{cChannel}{$\beta$
 \end{frame}
 
 % ---------------------------------------------------------------------------
+\begin{frame}{Parameters \& units: what we actually choose}
+The model is \hl{cChannel}{nondimensional}. Only \emph{three} dimensionless
+numbers are chosen; the dimensional $U_0,\Delta,b,H,C_f,\varepsilon$ enter
+\emph{only} through them.
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+chosen (dimensionless) & value & meaning\\
+\midrule
+$D=\Delta/(U_0+\Delta)$ & $0.6$ & jet-excess fraction ($\Rightarrow \beta=2D$)\\
+$\gamma=C_f b/H$ & $0.05$ & bottom-friction number\\
+$\varepsilon C_f$ (ECOEF) & $0.5$ (ray) / $1.0$ (mom) & bank erodibility (calibrated, deck p.8)\\
+$k^*=kb$ & swept $0.1$--$1.5$ & wavenumber (the wavelength axis)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Units} $b=1$ (length), $U_c\equiv U_0+\Delta=1$ (speed), $b/U_c=1$ (time).
+Then everything is fixed:
+\[
+U_0=1-D=\hl{cVeloc}{0.4},\quad \Delta=D=\hl{cVeloc}{0.6},\quad
+\bar u(y)=1-Dy^2,\quad \bar u(\pm b)=U_0=0.4,
+\]
+\[
+\beta=\bar\zeta_y=2D=\hl{cChannel}{1.2},\qquad E=\varepsilon C_f(1-D)=\hl{cEros}{0.2}\ (\text{ray}).
+\]
+\footnotesize \hl{cEros}{Honest note:} $U_0,\Delta,b,H,C_f,\varepsilon$ are \emph{not}
+independently pinned --- only $D,\gamma,E$ matter. One representative dimensional
+set (alluvial): $b=10$\,m, $H=1$\,m, $U_c=1$\,m\,s$^{-1}$, $C_f=0.005$ $\Rightarrow$
+$\gamma=0.05$; $\Delta=0.6$, $U_0=0.4$\,m\,s$^{-1}$.
+\end{frame}
+
+% ---------------------------------------------------------------------------
 \begin{frame}{Boundary: the erodible bank (the engine)}
 \textbf{Rigid banks} $\pp(\pm b)=0$: the parabolic jet has \hl{cEros}{no inflection point}
 $\Rightarrow$ Rayleigh-neutral. So the instability must come from the wall.

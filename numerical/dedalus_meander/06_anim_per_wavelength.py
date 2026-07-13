@@ -104,7 +104,8 @@ for k in KSTARS:
     print(f"  k*={k:>3} m={m:>2} Nx={Nx:>3}: sigma {sig:+.4f} (EVP {sig_e:+.4f})"
           f"  c {c:+.4f} (EVP {c_e:+.4f})  c_g {c_g:+.4f}  {g},{d}  t_end={t_end:.0f}")
 
-    stats = dict(sigma=sig, sigma_evp=sig_e, c_phase=c, c_group=c_g)
+    stats = dict(sigma=sig, sigma_evp=sig_e, c_phase=c, c_group=c_g,
+                 gamma=G, E=p.E, friction=args.friction)
     frames = four_panel_frames(res, m, k, D, plt, stats, title, t0=0.0)
     write_mp4(frames, os.path.join("per_wavelength", f"planform_k{tag}"),
               fps=14)

@@ -15,6 +15,24 @@ continuum is handled by the fit-window rule `t ≤ 0.9·Ny/(4Dk*)` and resolutio
 bank law taken literally (relaxation toward the **centerline** value), analytic RNG-free
 initial conditions (bank sinusoid + harmonic interior extension, ζ′(0)=0).
 
+## Chosen constants (nondimensional)
+
+The model is nondimensional — only **three** dimensionless numbers are chosen; the
+dimensional `U₀, Δ, b, H, C_f, ε` enter *only* through them (they are not independently
+pinned). Units: `b = 1` (length), `U_c ≡ U₀+Δ = 1` (speed), `b/U_c = 1` (time).
+
+| chosen | value | implied (in these units) | value |
+|---|---|---|---|
+| `D = Δ/(U₀+Δ)` | **0.6** | `U₀ = 1−D` | 0.4 |
+| `γ = C_f b/H` | **0.05** | `Δ = D` | 0.6 |
+| `εC_f` (ECOEF) | **0.5** ray / **1.0** mom | `ū(y)=1−Dy²`, `ū(±b)=U₀` | 0.4 |
+| `k* = kb` | swept **0.1–1.5** | `β = ζ̄_y = 2D` | 1.2 |
+| | | `E = εC_f(1−D)` | 0.2 (ray) |
+
+Every `06` movie stamps these in its footer; the deck (`derivations/`) has a dedicated slide.
+One representative dimensional set (alluvial, illustrative only): `b=10 m, H=1 m, U_c=1 m/s,
+C_f=0.005 ⇒ γ=0.05`.
+
 ## Formulation (all d3 idioms verified by smoke test 2026-07-13)
 
 RealFourier(x) × Chebyshev(y∈[−1,1]); bank fields ψb±(x,t) live on `(xbasis,)` as
