@@ -427,6 +427,51 @@ COLORS = {
     "dedalus": "#0868ac",     # dedalus measurement dots
 }
 
+
+def planform_frames(res, mode_index, kstar, plt, title, t0=0.0):
+    """RGB frames of the 2-D planform (psi' contours + erodible banks).
+
+    Each frame is normalized to the instantaneous mode amplitude (fixed
+    display size = the linear mode shape; the true e^{sigma t} growth is the
+    honest 'gain' counter), and the upstream crest tracker is read from the
+    MEASURED demodulated phase, not from theory. `res` must have psis, top,
+    bot recorded at the SAME cadence as the snapshots (call run_ivp with
+    rec_dt == snap_dt). Animates frames with tsnap >= t0.
+    """
+    assert len(res['top']) == len(res['psis']), \
+        "planform_frames needs rec_dt == snap_dt (aligned bank/psi cadence)"
+    a_all = demodulate(0.5 * (res['top'] + res['bot']), mode_index)
+    ts = res['tsnap']
+    Lx, x2b, y = res['Lx'], res['x'] / 2.0, res['y']
+    sel = np.where(ts >= t0)[0]
+    gain0 = np.abs(a_all[sel[0]])
+    frames = []
+    for i in sel:
+        amp = np.abs(a_all[i])
+        scale = 0.5 / max(amp, 1e-300)
+        xc = (-np.angle(a_all[i]) / kstar) % Lx / 2.0
+        fig, ax = plt.subplots(figsize=(9.8, 3.8), dpi=110)
+        ax.contourf(x2b, y, (scale * res['psis'][i]).T,
+                    levels=np.linspace(-0.55, 0.55, 12), cmap="RdBu_r",
+                    extend="both")
+        ax.plot(x2b, 1.0 + scale * res['top'][i], color=COLORS['psi1'], lw=2.0)
+        ax.plot(x2b, -1.0 + scale * res['bot'][i], color=COLORS['psi1'], lw=2.0)
+        ax.axvline(xc, color=COLORS['upstream'], lw=2.0, alpha=0.9)
+        xa, aw = 0.02 * Lx, 0.09 * (Lx / 2.0)
+        ax.annotate("", xy=(xa + aw, -2.2), xytext=(xa, -2.2),
+                    arrowprops=dict(arrowstyle="-|>", color=COLORS['jet'], lw=3))
+        ax.text(xa, -2.6, "flow", color=COLORS['jet'], fontsize=11)
+        ax.text(xa, 1.72, title + rf"   gain $\times{amp / gain0:.2g}$",
+                fontsize=10)
+        ax.set_ylim(-2.85, 2.35)
+        ax.set_xlim(0, Lx / 2.0)
+        ax.set_xlabel(r"Downstream distance ($\times 2b$)")
+        fig.tight_layout()
+        frames.append(fig_to_rgb(fig))
+        plt.close(fig)
+    return frames
+
+
 # === shared helper block v1 (keep byte-identical across rossby_palooza packages) ===
 def set_style():
     """Apply a consistent matplotlib style (Agg backend, readable fonts)."""

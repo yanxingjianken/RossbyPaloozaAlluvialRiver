@@ -52,6 +52,7 @@ micromamba run -n dedalus env OMP_NUM_THREADS=1 python 02_single_k_ivp.py     # 
 micromamba run -n dedalus env OMP_NUM_THREADS=1 python 03_multi_k_selection.py# fig04-05 (~8 min)
 micromamba run -n dedalus env OMP_NUM_THREADS=1 python 04_momentum_flux.py    # fig06-07
 micromamba run -n dedalus env OMP_NUM_THREADS=1 python 05_anim_planform.py    # planform_upstream.mp4
+micromamba run -n dedalus env OMP_NUM_THREADS=1 python 06_anim_per_wavelength.py  # per-wavelength mp4s + fig08 (~6 min)
 ```
 
 | File | Output |
@@ -61,7 +62,8 @@ micromamba run -n dedalus env OMP_NUM_THREADS=1 python 05_anim_planform.py    # 
 | `02_single_k_ivp.py` | `fig03` single-k growth curves vs EVP slopes |
 | `03_multi_k_selection.py` | `fig04` planform waterfall (selection + upstream march) · `fig05` measured dispersion |
 | `04_momentum_flux.py` | `fig06` ⟨u′v′⟩(y) IVP vs eigenmode · `fig07` centre flux ratio vs (γ+σ)/2D |
-| `05_anim_planform.py` | `planform_upstream.mp4` (+preview) |
+| `05_anim_planform.py` | `planform_upstream.mp4` (+preview): the k*=0.15 hero shot on its own 1-wavelength reach |
+| `06_anim_per_wavelength.py` | **one 2-D movie per seeded wavelength** — each of the 15 fig04 components (k*=0.1…1.5) run alone on the same Lx=20π reach → `figures/per_wavelength/planform_k*.mp4` (+previews), plus `fig08` final-frame contact sheet (the wavelength ladder). Each title carries λ/2b, σ* (grows/decays), c* (upstream/~stationary/downstream) + honest e^{σt} gain. Flags: `--kstars 0.3,0.5,...`, `--friction momentum`, `--frames N`. |
 | `outputs/` | (gitignored; regenerable run data) |
 
 Templates & provenance: IVP scaffold after the user's `literature_review/blocking/1983_eddy_straining_mechanism/scripts/shutts_1983.py`;
