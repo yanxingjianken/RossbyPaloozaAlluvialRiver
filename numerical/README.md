@@ -36,6 +36,7 @@ One package per item in [`../literature/`](../literature/): each is a self-conta
 | [`schumm_1967/`](schumm_1967/) | empirical wavelength laws | refit of the 36 transcribed sections reproduces r=.95/.93, R²=89/86%, SE=.16/.19, Q-alone 43/40% — the paper's own fit is the transcription checksum |
 | [`parker_1982/`](parker_1982/) | nonlinear fattening & skewing | J_FM=0.0478/0.0469 anchors; e*=5.12/2.73 thresholds; full Eq.-7 PDE tracks the theory to 0.07% (growth) / 0.1% (\|J\|); 4 transcription glyphs resolved by dual routes |
 | [`bahmanpouri_2022/`](bahmanpouri_2022/) | entropy velocity method | Φ(M) identity on 6/7 Table-2 rows (+codified published typo in FM CS3); digitized Sajó bathymetry A=13.27 vs printed 13.67; full one-surface-velocity pipeline within 10% of Table 3 |
+| [`dedalus_meander/`](dedalus_meander/) | **the deck-p.8 numerical model, rung 1** (Dedalus v3 2-D channel) | d3 EVP ≡ vorticity_lib GEP to 1e−8 across all 6 deck sets × 2 closures; multi-wavelength erodible-bank IVP reproduces the full dispersion (growth band k*²<2D, upstream c*<0) by per-mode demodulation; free-mode flux ratio (γ+σ)/2D verified to 0.00% |
 | [`vorticity_meander/`](vorticity_meander/) | **the group's own theory** (6/30 deck) | **rebuilt from scratch 2026-07-12 (v2)**: pins re-digitized independently (agree with v1); p.5 box identity exact; rigid banks neutral; upstream c₀=−ED/γ_eff; TWO friction closures (deck-literal Rayleigh + Ikeda-consistent momentum drag) both fit all 6 phase intercepts (exact E↔2E degeneracy, ECOEF=0.5/1.0) — peak gap 3.2–4.4× (ray) vs 2.3–3.2× (mom): **friction closure alone ruled out as the explanation**; suspects now wavy-bank pressure drag + growth-axis normalization; see its `THEORY.md` for the equations vs Ikeda Eq. 7 |
 
 ## Quickstart
@@ -58,6 +59,8 @@ Environment: `fourcastnetv2` micromamba env (numpy, scipy, matplotlib, imageio+l
 ## Status / deferred
 
 - Beamer decks: `ikeda_1981/slides/` has the compiled 23-slide talk; the other four packages' decks are deferred (figures are slide-ready PNGs).
-- `vorticity_meander`: v1 (2026-07-06) torn down and rebuilt as v2 (2026-07-12) with a dual friction closure; the v1 open question is answered (friction closure alone ≠ the peak gap) and sharpened (wavy-bank pressure drag / growth-axis normalization). Next natural step: the 2-D numerical model of the deck p. 8 goals, which contains both closures and the bank pressure drag by construction.
+- `vorticity_meander`: v1 (2026-07-06) torn down and rebuilt as v2 (2026-07-12) with a dual friction closure; the v1 open question is answered (friction closure alone ≠ the peak gap) and sharpened (wavy-bank pressure drag / growth-axis normalization).
+- `dedalus_meander` (2026-07-13): rung 1 of the deck-p.8 numerical model — linear 2-D Dedalus channel, spectrum-identical to the theory package. Deferred rungs: nonlinear toggle, resolved wavy-bank pressure drag (the peak-gap suspect), erodible bottom + sediment feedback.
+- Repo now under git, synced to the private GitHub repo `yanxingjianken/RossbyPaloozaAlluvialRiver` at every Claude session end (`scripts/sync_github.sh`).
 
 *Built 2026-07-06. The root-level `../ikeda_1981/` original build (superseded by the extended copy here) and the empty misspelled `../banmanpouri_2022/` were removed 2026-07-13 when the repo went under git; this tree is canonical.*
