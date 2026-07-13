@@ -1,0 +1,367 @@
+% From Navier-Stokes to the vorticity-meander model (and to Ikeda's Eq. 7).
+% Rossby Palooza -- Alluvial Rivers & Jet streams.
+% Compile:  lualatex ns_to_meander.tex   (run twice for the footline/toc)
+\documentclass[aspectratio=169,10pt]{beamer}
+
+\usepackage{amsmath,amssymb}
+\usepackage{mathrsfs}
+\usepackage{booktabs}
+\usepackage{array}
+
+\definecolor{cChannel}{HTML}{08519C}
+\definecolor{cGrowth}{HTML}{238B45}
+\definecolor{cVeloc}{HTML}{E6820A}
+\definecolor{cCurv}{HTML}{6A51A3}
+\definecolor{cEros}{HTML}{D7301F}
+\definecolor{cBank}{HTML}{7F5539}
+\definecolor{cMom}{HTML}{E6550D}
+
+\usecolortheme{whale}
+\setbeamercolor{structure}{fg=cChannel}
+\setbeamercolor{frametitle}{fg=white,bg=cChannel}
+\setbeamercolor{title}{fg=white,bg=cChannel}
+\setbeamercolor{subtitle}{fg=cChannel}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[circle]
+\setbeamerfont{frametitle}{size=\large}
+\setbeamertemplate{footline}[frame number]
+
+\newcommand{\hl}[2]{\textcolor{#1}{\textbf{#2}}}
+\newcommand{\mhl}[2]{\textcolor{#1}{#2}}  % math-mode highlight (no \textbf)
+\newcommand{\pp}{\psi'}
+\newcommand{\pb}{\bar\psi}
+\newcommand{\ub}{\bar u}
+\newcommand{\zp}{\zeta'}
+\newcommand{\zb}{\bar\zeta}
+\newcommand{\dt}{\partial_t}
+\newcommand{\dx}{\partial_x}
+\newcommand{\dy}{\partial_y}
+\newcommand{\ds}{\partial_{\tilde s}}
+\newcommand{\Fr}{\mathrm{Fr}}
+
+\title{From Navier--Stokes to the Vorticity--Meander Model}
+\subtitle{one parent, two models: Ikeda's Eq.~(7) and the channel Rossby wave}
+\author{Rossby Palooza --- Alluvial Rivers \& Jet streams}
+\date{Derivation companion to \texttt{numerical/dedalus\_meander/}}
+
+\begin{document}
+
+{\setbeamertemplate{footline}{}
+\begin{frame}\titlepage\end{frame}}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{The map: one parent, two models}
+Both models start from the \hl{cChannel}{same} 3-D Navier--Stokes + mass
+conservation and the \hl{cChannel}{same} depth average.  They \hl{cEros}{fork}
+at one step (Station~2): Ikeda evaluates the momentum balance in channel-fitted
+coordinates; we take the \hl{cCurv}{curl} in a fixed frame.
+\vfill
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}c@{\quad}c@{\quad}c@{}}
+\multicolumn{3}{c}{\textbf{Station 0}\; 3-D NS + $\nabla\!\cdot\mathbf u=0$}\\[2pt]
+\multicolumn{3}{c}{$\downarrow$ \small depth-average (hydrostatic, bottom drag $C_f$)}\\[2pt]
+\multicolumn{3}{c}{\textbf{Station 1}\; depth-averaged St~Venant (shallow water)}\\[4pt]
+$\swarrow$ && $\searrow$\\[2pt]
+\textbf{Ikeda} && \textbf{ours}\\
+intrinsic $(\tilde s,\tilde n)$, curvature $\mathscr C'$ && fixed Cartesian $(x,y)$, \hl{cCurv}{curl}\\
+momentum @ $\tilde n=b$ && vorticity $\zp=\nabla^2\pp$\\
+$\downarrow$ && $\downarrow$\\
+\hl{cVeloc}{Eq.~(7)}: near-bank $u_b'$ && \hl{cGrowth}{$\dt\zp+\ub\dx\zp+\tfrac{2\Delta}{b^2}\dx\pp=\mathcal F$}\\
+downstream migration && upstream migration
+\end{tabular}
+\end{center}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Station 0--1: Navier--Stokes $\to$ shallow water (shared)}
+\textbf{Station 0.} Incompressible NS with free surface $z=\tilde\xi$, bed $z=\tilde\eta$:
+\[
+\nabla\cdot\mathbf u=0,\qquad
+\frac{D\mathbf u}{Dt}=-\frac1\rho\nabla p-g\hat{\mathbf z}+\frac1\rho\nabla\cdot\boldsymbol\tau .
+\]
+\textbf{Station 1.} Four assumptions collapse 3-D $\to$ 2-D:
+\begin{itemize}\footnotesize
+  \item[(i)] \hl{cChannel}{hydrostatic} ($H\ll L$): $\;\partial_z p=-\rho g\Rightarrow p=\rho g(\tilde\xi-z)$,\; so horizontal $\nabla p=\rho g\nabla\tilde\xi$;
+  \item[(ii)] depth-integrate continuity + horizontal momentum ($\tilde\eta\to\tilde\xi$);
+  \item[(iii)] vertical stress $\to$ \hl{cBank}{bottom drag} $\tau_b=\rho C_f|\mathbf U|\mathbf U$ (top $\approx0$);
+  \item[(iv)] \hl{cEros}{uniform vertical profile} --- \emph{this discards the secondary (helical) flow}.
+\end{itemize}
+\[
+\boxed{\;\dt h+\nabla\cdot(h\mathbf U)=0,\qquad
+\dt\mathbf U+(\mathbf U\cdot\nabla)\mathbf U=-g\nabla\xi-\frac{C_f|\mathbf U|\mathbf U}{h}\;}
+\]
+\footnotesize Assumption (iv) is why Ikeda must \emph{re-inject} the secondary flow as the closure $A$; our model simply omits it (flat rigid bed).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Station 2 (ours): low Froude $\Rightarrow$ rigid lid + curl}
+$\Fr=U_0/\sqrt{gH}\in(0.1,0.3)$, so $\Fr^2\ll1$. Momentum balance fixes the surface:
+\[
+\underbrace{(\mathbf U\!\cdot\!\nabla)\mathbf U}_{\sim U_0^2/L}\sim
+\underbrace{g\nabla\eta}_{\sim g\eta/L}\;\Rightarrow\;
+\frac{\eta}{H}\sim\frac{U_0^2}{gH}=\Fr^2 .
+\]
+Feed into continuity $\;\dt\eta+H\nabla\!\cdot\mathbf U+\nabla\!\cdot(\eta\mathbf U)=0$:
+\[
+\boxed{\nabla\cdot\mathbf U=O(\Fr^2)\approx0}\;\Rightarrow\;
+u=-\dy\pp,\;\; v=+\dx\pp\quad(\text{streamfunction}).
+\]
+\hl{cEros}{Key consistency point:} $\Fr^2$ kills the \emph{divergence} (continuity), not the
+\emph{advection}: in momentum, advection and $g\nabla\eta$ \hl{cChannel}{balance at $O(1)$}
+(that is what selects $\eta$). The surface becomes a slaved pressure --- and the
+\hl{cCurv}{curl} of a gradient is zero:
+\[
+\boxed{\;\dt\zeta+\mathbf U\cdot\nabla\zeta=\mathrm{curl}_z\!\Big[\!-\tfrac{C_f}{H}|\mathbf U|\mathbf U\Big],
+\qquad \zeta=\dx v-\dy u=\nabla^2\psi\;}
+\]
+\footnotesize This is the low-Mach $\leftrightarrow$ incompressible analogue with $\Fr\!\leftrightarrow\!\mathrm{Ma}$: divergence $=O(\Fr^2)$, momentum advection kept, pressure a Lagrange multiplier.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Station 2 (Ikeda): channel coordinates + curvature}
+Glue coordinates to the meandering centreline: $\tilde s$ arclength, $\tilde n$
+transverse, curvature $\tilde{\mathscr C}(\tilde s)$. Walls sit at $\tilde n=\pm b$
+\emph{by construction}; meandering lives in the metric. St~Venant becomes
+\[
+\tilde u\ds\tilde u+\tilde v\partial_{\tilde n}\tilde u+\underbrace{\tilde{\mathscr C}\tilde u\tilde v}_{\text{curv.}}=-g\ds\tilde\xi-\frac{\tilde\tau_s}{\rho\tilde h},\quad
+\tilde u\ds\tilde v+\tilde v\partial_{\tilde n}\tilde v-\underbrace{\tilde{\mathscr C}\tilde u^2}_{\text{centrif.}}=-g\partial_{\tilde n}\tilde\xi-\frac{\tilde\tau_n}{\rho\tilde h}
+\]
+Expand in $\nu=b/r_0\ll1$:
+\begin{itemize}\footnotesize
+  \item[$O(1)$:] $\;C_fU^2=gHI,\ \ UH=q_w$ (uniform base flow);
+  \item[$O(\nu)$:] $\;U^2\mathscr C'=g\,\partial_{\tilde n}\xi'$ \hfill (superelevation balance);
+  \item[$O(\nu^2)$:] $\;U\ds u'=-g\ds\xi'-C_f\tfrac{U^2}{H}\big(2\tfrac{u'}{U}-\tfrac{\xi'}{H}+\tfrac{\eta'}{H}\big).$
+\end{itemize}
+\footnotesize The factor $\mathbf 2$ in $2u'/U$ is the linearised $|\mathbf U|\mathbf U$ (streamwise drag twice the cross-stream). This is a \emph{field} equation at all $\tilde n$.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Ikeda's Eq.~(7): assemble at the bank}
+Two closures. Integrate $O(\nu)$: superelevation
+$\displaystyle\xi'=\tfrac1g\mathscr C'U^2\tilde n$; import the 3-D secondary-flow result
+$\displaystyle \eta'/H=-A\,\mathscr C'\tilde n$ ($A\approx2.89$ alluvial). Substitute and
+evaluate at $\tilde n=b$, $u_b'=u'(\tilde n=b)$:
+\begin{equation*}
+\boxed{\;U\frac{\partial u_b'}{\partial\tilde s}+2\frac{U}{H}C_f\,u_b'
+= b\Big[\mhl{cCurv}{-U^2\ds\mathscr C'}
++C_f\mathscr C'\Big(\mhl{cVeloc}{\tfrac{U^4}{gH^2}}+\mhl{cEros}{A\tfrac{U^2}{H}}\Big)\Big]\;}\tag{7}
+\end{equation*}
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+term & origin & physics\\
+\midrule
+\hl{cCurv}{$-U^2 b\,\ds\mathscr C'$} & $-g\ds\xi'$ & free-vortex (inner bank fast, no lag)\\
+\hl{cVeloc}{$C_f b\,\mathscr C'U^4/gH^2$} & superelevation $\xi'/H$ & deeper outer column, $\propto\Fr^2$\\
+\hl{cEros}{$C_f b\,\mathscr C'A\,U^2/H$} & secondary flow $-\eta'/H$ & bed scour, \textbf{dominant} ($A/\Fr^2\!\approx\!30$)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\footnotesize LHS: advection + friction relaxation over $H/2C_f$. Result: $u_b'$ peaks $\sim0.18\lambda$ \emph{downstream} of the apex $\Rightarrow$ bends grow \& migrate \hl{cVeloc}{downstream} ($\omega_0>0\ \forall k$).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Station 3--4 (ours): base jet, $\beta$, friction closures}
+\textbf{Base state} (observed parabolic jet, Bahmanpouri 2022):
+\[
+\ub(y)=U_0+\frac{\Delta}{b^2}(b^2-y^2)=1-Dy^2,\qquad
+\boxed{\zb_y=-\ub_{yy}=\frac{2\Delta}{b^2}=2D>0}
+\]
+the constant positive vorticity gradient --- the channel's \hl{cChannel}{$\beta$}.
+\smallskip
+
+\textbf{Linearise} $\mathbf U\cdot\nabla\zeta\to \ub\,\dx\zp+v'\zb_y$ ($v'=\dx\pp$):
+\[
+\boxed{\;\dt\zp+\ub(y)\,\dx\zp+\mhl{cChannel}{\tfrac{2\Delta}{b^2}\dx\pp}=\mathcal F[\pp],\qquad \zp=\nabla^2\pp\;}
+\]
+
+\textbf{Friction} $\mathcal F=\mathrm{curl}_z[-\tfrac{C_f}{H}|\mathbf U|\mathbf U]$, two readings:
+\[
+\mathcal F_{\text{ray}}=-\gamma\,\zp,\qquad
+\mathcal F_{\text{mom}}=-\gamma\big[2\ub\,\pp_{yy}+2\ub_y\,\pp_y+\ub\,\pp_{xx}\big]
+\]
+\footnotesize ($\gamma=C_fb/H$.) They differ only by whether $|\mathbf U|\mathbf U$'s anisotropy is kept; this is the $E\!\leftrightarrow\!2E$ degeneracy and the $+2\gamma$ in the dispersion.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Boundary: the erodible bank (the engine)}
+\textbf{Rigid banks} $\pp(\pm b)=0$: the parabolic jet has \hl{cEros}{no inflection point}
+$\Rightarrow$ Rayleigh-neutral. So the instability must come from the wall.
+\smallskip
+
+\textbf{Erodible bank} (deck p.7): the wall streamfunction relaxes toward the interior,
+\[
+\boxed{\;\dt\pp\big|_{y=\pm b}=\frac{\varepsilon C_fU_0}{b}\big(\pp|_{y=0}-\pp|_{y=\pm b}\big)\;}
+\]
+\emph{not} an external forcing --- the bank is driven by the flow it encloses.
+\smallskip
+
+\textbf{Reynolds, not Taylor.} On the slide the split $\psi_i=\pb(y_i)+\hat\psi_i e^{i(kx-\omega t)}$
+is a base+perturbation (Reynolds) decomposition. The physical bank displacement
+$\eta$ is not a state variable; it is recovered from the wall streamfunction by the
+kinematic map (total $\psi$ constant along the wall streamline):
+\[
+\boxed{\;\pp(\pm b)=\ub(\pm b)\,\eta=U_0\,\eta\quad\Longleftrightarrow\quad \eta=\pp(\pm b)/U_0\;}
+\]
+\footnotesize So seeding a sinusoidal wall streamfunction \emph{is} seeding a sinusoidal meander; $y=\pm b$ is the fixed base wall (linear BC applied there to $O(\text{amp}^2)$).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{The three extra terms (vs Ikeda), from the curl}
+Ikeda (7) \emph{is} his momentum pair curled and read at $\tilde n=b$; with
+$\zeta'_I\equiv-\partial_{\tilde n}u'=-u_b'/b$,
+\[
+U\ds\zeta'_I+2C_f\tfrac{U}{H}\zeta'_I=U^2\ds\mathscr C'-C_f\mathscr C'\tfrac{U^4}{gH^2}-C_f\mathscr C'\tfrac{AU^2}{H}.
+\]
+Against ours $\dt\zp+\ub\dx\zp+2D\dx\pp=\mathcal F$, $\zp=\pp_{yy}-k^2\pp$:
+\begin{center}\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+extra term & born at & Ikeda lacks it because\\
+\midrule
+\hl{cGrowth}{$\dt\zp$} & Station 2 (kept $\dt$) & quasi-steady (flow slaved to $\mathscr C'$)\\
+\hl{cChannel}{$2D\,\dx\pp=v'\zb_y$} & Station 4 (linearise) & plug flow $\zb\equiv0$: \emph{identically zero}\\
+\hl{cCurv}{$-k^2\pp$ in $\zp$} & Station 2 (vorticity) & keeps only shear $-\partial_{\tilde n}u'$ (parabolic in $\tilde s$)\\
+\bottomrule
+\end{tabular}
+\end{center}
+\footnotesize Degenerate check: set $D=0$, $\dt=0$, drop $-k^2\pp$ $\Rightarrow$ our operator collapses to $U\ds+2C_fU/H$; add back sources $\Rightarrow$ Eq.~(7). \hl{cEros}{Same parent, different terms kept.} These three turn ``passive response to curvature'' into ``a wave with its own retrograde phase speed.''
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{The 3-level closure: where friction \& erosion live}
+Levels $\psi_1(+b),\psi_2(0),\psi_3(-b)$, sinuous $\hat\psi_1=\hat\psi_3$;
+3-point Laplacian $\hat\zeta_2=2\hat\psi_1-(2+k^{*2})\hat\psi_2$.
+\smallskip
+
+\hl{cGrowth}{Friction} lives in the \textbf{interior (centre) vorticity} equation:
+\[
+\big(-i\omega^*+ik^*\big)\hat\zeta_2+\underbrace{2iDk^*\hat\psi_2}_{\beta}=\underbrace{\hat{\mathcal F}_2}_{\text{friction}}
+\]
+\hl{cEros}{Erosion} lives in the \textbf{bank} equation (dynamic BC):
+\[
+\big(-i\omega^*+E\big)\hat\psi_1=E\hat\psi_2,\qquad E=\varepsilon C_f U_0/(U_0+\Delta)
+\]
+Two equations, two unknowns $\Rightarrow \det M(\omega^*)=0$. Feedback loop:
+centre feels the banks (the $2\hat\psi_1$ in $\hat\zeta_2$); banks erode toward the
+centre. \hl{cEros}{No erosion (rigid) $\Rightarrow$ no instability.}
+\smallskip
+
+\footnotesize ``Friction at the centre'' is the $N{=}3$ artefact (one interior node);
+in the continuum it acts at \emph{all} interior $y$. Ikeda's friction is likewise a
+bulk term --- Eq.~(7) merely reads it at $\tilde n=b$.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{The Dedalus solver = the continuum version}
+The 3-level closure is the crudest $N=3$ discretisation. \texttt{dedalus\_meander}
+resolves the full $y$-profile (Chebyshev), \hl{cChannel}{5 fields / 5 equations}:
+\begin{center}\footnotesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+unknown & equation\\
+\midrule
+$\pp(x,y)$ (Fourier$\times$Chebyshev) & interior vorticity PDE $+$ 2 taus\\
+$\psi b_{\rm top}(x),\ \psi b_{\rm bot}(x)$ & $\pp(y{=}\pm1)=\psi b_{\pm}$ (Dirichlet)\\
+$\tau_1(x),\ \tau_2(x)$ (numerical) & $\dt\psi b_{\pm}=E(\pp(y{=}0)-\psi b_{\pm})$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Physical d.o.f.: $\pp$ + two banks; taus are the spectral BC device (2, since
+$\nabla^2$ is 2nd order in $y$).
+\smallskip
+
+\hl{cGrowth}{Verification.} The Dedalus EVP reproduces \texttt{vorticity\_lib}'s
+$N$-point GEP eigenvalue to $\mathbf{10^{-10}}$; IVP-measured $(\sigma,c)$ match to
+$0.01\%$; rigid banks neutral to $10^{-8}$; the varicose mode decays at exactly $-iE$.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Results: dispersion, upstream migration}
+Bank mode (verified, $D=0.6,\gamma=0.05$, rayleigh):
+\begin{itemize}\footnotesize
+  \item \hl{cChannel}{Growth band} $k^{*2}<2D$ (interior amplified iff $|\hat\psi_2|>|\hat\psi_1|$), peak $k^*\!\approx\!0.44$.
+  \item \hl{cCurv}{Phase speed} $c^*=\mathrm{Re}\,\omega^*/k^*<0$ for \emph{all} $k^*$:
+        the bends migrate \hl{cCurv}{upstream}, $c^*\to-ED/\gamma$ as $k^*\to0$.
+  \item Contrast Ikeda: $\omega_0>0\ \forall k$, always \hl{cVeloc}{downstream}.
+\end{itemize}
+\smallskip
+\hl{cEros}{Momentum flux} (deck p.6): with friction the wave tilts and
+\[
+\partial_y\overline{u'v'}=\frac{\gamma}{2D}\,\overline{\zeta_2'^2}>0
+\]
+carries streamwise momentum from the jet core \emph{transversely} to the banks
+(zero for the steady forced wave at $\gamma=0$).
+\smallskip
+
+\footnotesize Open question (codified): the deck's growth-rate \emph{peaks} sit $2.3$--$4.4\times$
+above the literal model; the momentum closure closes $\sim1/3$ of the gap --- friction
+closure alone does not explain it (suspects: wavy-bank pressure drag; growth-axis normalisation).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{New prediction: the group-velocity sign flip}
+Phase and group velocity \hl{cEros}{disagree} --- the Rossby signature.
+For $D=0.6,\gamma=0.05$:
+\begin{center}\footnotesize
+\begin{tabular}{@{}lccc@{}}
+\toprule
+wavelength & $k^*$ & crests $c^*$ & \textbf{momentum} $c_g=d\omega_r/dk$\\
+\midrule
+very long ($\lambda/2b>10.7$) & $<0.29$ & $-x$ (up) & \hl{cCurv}{$-x$ upstream}\\
+growth-band body & $0.29$--$1.1$ & $-x$ (up) & \hl{cVeloc}{$+x$ downstream} (max $+0.13$ at $k^*\!\approx\!0.7$)\\
+short (decaying) & $>1.1$ & $\approx0$ & $+x$, $\to0$\\
+\bottomrule
+\end{tabular}
+\end{center}
+\[
+\boxed{\text{crests retrograde (upstream) for all }\lambda;\quad
+\text{momentum/energy flips sign at }k^*\approx0.29\ (\lambda/2b\approx10.7)}
+\]
+\footnotesize Only waves longer than $\sim11$ channel widths carry momentum upstream; everything
+shorter carries it downstream while its crests still crawl upstream. Testable with a
+localized wave-packet IC (track the envelope vs the crests).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Why the movies look ``advective,'' not ``erosive''}
+The bank mode both \hl{cGrowth}{grows} ($\sigma$) and \hl{cCurv}{propagates} ($c^*$):
+\[
+\psi b(x,t)=|a|\,e^{\sigma t}\cos\!\big(k(x-c^*t)+\varphi\big).
+\]
+\begin{itemize}\footnotesize
+  \item For long waves $|c^*|$ is large ($-0.6$) while $\sigma$ is small ($0.055$):
+        the \hl{cCurv}{translation dominates the eye} $\Rightarrow$ ``looks like advection.''
+  \item The field panels are amplitude-\emph{normalized} (fixed display size), so the
+        growth is hidden --- it lives in the gain counter / the $\log|a|$ curve.
+  \item It is \hl{cEros}{not} mean-flow advection: that would be $+x$ at speed $\sim1$;
+        this is $-x$ at $0.6$. The bank equation has \emph{no} $\dx$ term --- the motion
+        is the eigenmode's retrograde phase speed inherited through relaxation.
+\end{itemize}
+\smallskip
+\hl{cChannel}{The 4-panel movies fix the perception}: $\sigma$ (growth) and $c^*$ (crests)
+vs $c_g$ (momentum) are shown separately, and the $\log|a(t)|$ curve makes the erosion
+growth explicit.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Summary}
+\begin{itemize}
+  \item One parent: 3-D NS $+$ mass $\to$ depth-averaged shallow water.
+  \item \hl{cEros}{Fork at Station 2}: Ikeda evaluates momentum in intrinsic
+        coordinates ($\to$ Eq.~7 at $\tilde n=b$); we take the \hl{cCurv}{curl} in a
+        fixed frame ($\to$ the vorticity equation).
+  \item Three curl-born terms ($\dt\zp$, the $\beta$ term $2D\dx\pp$, the $-k^2\pp$
+        share) turn Ikeda's passive, always-downstream response into a
+        \hl{cChannel}{channel Rossby wave} that migrates \hl{cCurv}{upstream}.
+  \item Friction is a bulk interior term (both models); erosion is a dynamic
+        boundary condition (the engine; rigid $\Rightarrow$ neutral).
+  \item \texttt{dedalus\_meander} = the continuum solver (5 fields / 5 eqs),
+        verified against the theory GEP to $10^{-10}$.
+  \item Prediction: \hl{cVeloc}{group-velocity sign flip} at $k^*\!\approx\!0.29$ ---
+        crests upstream everywhere, momentum upstream only for $\lambda/2b>10.7$.
+\end{itemize}
+\end{frame}
+
+\end{document}

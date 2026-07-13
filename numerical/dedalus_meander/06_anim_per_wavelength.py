@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""per-wavelength 2-D movies: each seeded wavelength gets its OWN mp4.
+"""per-wavelength 4-panel diagnostic movies: each seeded wavelength -> its OWN mp4.
 
 The fig04 waterfall seeds 15 bank sinusoids in one channel; here each of
 those wavelengths is run ALONE on the same Lx = 20*pi window and rendered
-as its own 2-D planform movie (psi' contours + erodible banks). Because the
-window is common, the movies show the wavelengths at true relative size:
-k* = 0.1 is one meander across the reach, k* = 1.5 is fifteen. Each title
-carries lambda/2b, the measured growth sigma* (grow/decay) and phase speed
-c* (upstream / ~stationary / downstream), with an honest e^{sigma t} gain
-counter.
+as its own 2x2 movie:
+  (0,0) psi_total = psibar + psi'  (streamlines of the meandering jet)
+  (0,1) psi'                        (perturbation)
+  (1,0) u'v'                        (momentum flux / Reynolds stress)
+  (1,1) stats + log|a(t)| erosion-growth curve
+Because the window is common, the movies show wavelengths at true relative
+size (k*=0.1 = 1 meander across the reach, k*=1.5 = 15). The subtitle carries
+lambda/2b, measured sigma* (vs EVP), phase speed c* AND group speed c_g
+(upstream / downstream), + an honest e^{sigma t} gain. The growth curve makes
+the erosion explicit (the field panels are amplitude-normalized so the mode
+stays visible; the pattern's translation is the phase speed c*, NOT mean-flow
+advection -- the bank eq has no d/dx term).
 
 Outputs: figures/per_wavelength/planform_k<..>.mp4 (+ previews) and
 figures/fig08_per_wavelength_grid.png (final-frame contact sheet).
@@ -23,7 +29,7 @@ import os
 import numpy as np
 
 from channel_lib import (COLORS, FIG_DIR, Params, VL, build_ivp, demodulate,
-                         evp_bank_mode, fit_sigma_c, planform_frames, run_ivp,
+                         evp_bank_mode, fit_sigma_c, four_panel_frames, run_ivp,
                          seed_banks, t_filament, set_style, save_fig,
                          warp_fill, write_mp4)
 
@@ -34,7 +40,7 @@ ap.add_argument("--kstars", type=str, default=None,
                 help="comma list of k* (default: 0.1..1.5 step 0.1)")
 ap.add_argument("--friction", choices=("rayleigh", "momentum"),
                 default="rayleigh")
-ap.add_argument("--frames", type=int, default=72)
+ap.add_argument("--frames", type=int, default=48)
 args = ap.parse_args()
 
 D, G = 0.6, 0.05
@@ -48,8 +54,15 @@ os.makedirs(SUBDIR, exist_ok=True)
 
 
 def nx_for(m):
-    """Resolve m periods with >=16 pts/period, power of two, capped at 256."""
-    return int(min(256, max(64, 1 << int(np.ceil(np.log2(16 * m))))))
+    """Resolve m periods with >=12 pts/period, power of two, capped at 192."""
+    return int(min(192, max(64, 1 << int(np.ceil(np.log2(12 * m))))))
+
+
+def group_speed(k, p, dk=0.02):
+    """c_group = d omega_r / dk of the bank mode (branch-continued)."""
+    ks = np.array([max(k - dk, 1e-3), k, k + dk])
+    om = VL.bank_branch(ks, p.D, p.gamma, p.E, p.friction)
+    return float((om[2].real - om[0].real) / (ks[2] - ks[0]))
 
 
 def classify(sig, c):
@@ -82,16 +95,19 @@ for k in KSTARS:
 
     a = demodulate(0.5 * (res['top'] + res['bot']), m)
     sig, c, r2 = fit_sigma_c(res['t'], a, k, win)
+    c_g = group_speed(k, p)
     g, d = classify(sig, c)
     tag = f"{k:.2f}".replace('.', 'p')
-    title = (rf"$k^*={k:g}$  $\lambda/2b={np.pi/k:.1f}$  "
-             rf"$\sigma^*={sig:+.3f}$ ({g})  $c^*={c:+.3f}$ ({d})")
+    title = (rf"$k^*={k:g}$   $\lambda/2b={np.pi/k:.1f}$   "
+             rf"$\sigma^*={sig:+.3f}$ ({g})   crests $c^*={c:+.3f}$ ({d})   "
+             rf"momentum $c_g={c_g:+.3f}$")
     print(f"  k*={k:>3} m={m:>2} Nx={Nx:>3}: sigma {sig:+.4f} (EVP {sig_e:+.4f})"
-          f"  c {c:+.4f} (EVP {c_e:+.4f})  {g},{d}  t_end={t_end:.0f}")
+          f"  c {c:+.4f} (EVP {c_e:+.4f})  c_g {c_g:+.4f}  {g},{d}  t_end={t_end:.0f}")
 
-    frames = planform_frames(res, m, k, plt, title, t0=0.0)
+    stats = dict(sigma=sig, sigma_evp=sig_e, c_phase=c, c_group=c_g)
+    frames = four_panel_frames(res, m, k, D, plt, stats, title, t0=0.0)
     write_mp4(frames, os.path.join("per_wavelength", f"planform_k{tag}"),
-              fps=16)
+              fps=14)
 
     # keep final normalized planform for the contact sheet
     pf = res['psis'][-1]
