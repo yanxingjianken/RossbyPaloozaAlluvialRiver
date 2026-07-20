@@ -104,13 +104,13 @@ def multipanel_eulerian_frames(res, plt):
     a0 = np.max(np.abs(bser[0]))
     ixf = psis.shape[1] // 2                                   # FIXED x-slice (mid-domain)
     Hy = Hbed[ixf] if Hbed.shape[0] > 1 else Hbed[0]
+    ks, sig, cph, cg = dispersion(cfg, ks=np.linspace(0.05, 1.5, 30))   # once
 
     def rect(ax, F, vlim, cmap="RdBu_r"):
         ax.pcolormesh(x2b, y, F.T, cmap=cmap, vmin=-vlim, vmax=vlim,
                       shading="gouraud", rasterized=True)
         ax.axhline(1, color="0.6", lw=0.6, ls=":"); ax.axhline(-1, color="0.6", lw=0.6, ls=":")
 
-    pb = MD.VL.u_profile  # not used; base streamfunction below
     frames = []
     for i in range(len(psis)):
         amp = np.max(np.abs(bser[i]))
@@ -149,7 +149,6 @@ def multipanel_eulerian_frames(res, plt):
         axc.set_title(rf"$y$-$z$ cross-section at FIXED $x/2b={x2b[ixf]:.1f}$", fontsize=9)
 
         axd = axs[1, 1]
-        ks, sig, cph, cg = dispersion(cfg, ks=np.linspace(0.05, 1.5, 30))
         axd.plot(ks, sig, color=COLORS["growth"], lw=1.8, label=r"$\sigma^*$")
         axd.plot(ks, cph, color=COLORS["upstream"], lw=1.8, label=r"$c^*$")
         axd.plot(ks, cg, color=COLORS["momentum"], lw=1.8, label=r"$c_g$")

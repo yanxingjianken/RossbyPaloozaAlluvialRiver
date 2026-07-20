@@ -88,7 +88,7 @@ to ~1e-9 — the Ĥ²-weighted, ζ-auxiliary reformulation is correct.
 | `postprocessing/pp_lib.py` | HDF5→`res` adapter + `dispersion`/`group_velocity`; imports channel_lib renderers |
 | `postprocessing/01_dispersion.py` | `fig01` σ/c*/c_g vs bed · `fig02` group-flip k_g vs thalweg depth |
 | `postprocessing/02_planform_movies.py` | per-run planform movies from `outputs/*.h5` |
-| `postprocessing/03_multipanel.py` | 5-panel movie: ψ_total · ψ' · momentum flux u′v′ · **y-z cross-section** (Ikeda Fig-2b view; depth-averaged bed+jet+banks) · dispersion (σ, c\*, c_g) |
+| `postprocessing/03_multipanel.py` | 5-panel movie: ψ_total · ψ' · momentum flux u′v′ · **y-z cross-section** (Ikeda Fig-2b view; depth-averaged bed+jet+banks) · dispersion (σ, c\*, c_g). Default = normalized + warp (magnifying-glass mode-shape view). **`--eulerian`** = fully-Eulerian: fixed rectangular domain, no warp, ONE fixed scale (the meander grows out of a near-straight channel = true e^{σt}), fixed-x cross-section |
 | `derivations/variable_h_pv.tex/.pdf` | the PV / topographic-β derivation (9 slides) |
 
 Provenance: reuses the verified d3 idioms, GEP, and renderers of `../dedalus_meander`
