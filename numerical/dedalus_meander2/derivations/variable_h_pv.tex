@@ -147,6 +147,30 @@ matrices.  Safe, precedented route (as in the QG/shallow-water scripts):
 \end{frame}
 
 % --------------------------------------------------------------------------- %
+\begin{frame}{The ``water outside the channel'': which 2nd-order effect?}
+Drawing the linear field on the \emph{fixed} box $[-1,1]$ while the banks displace by
+$\eta=\psi_b/U_0$ ($U_0<1\Rightarrow\eta>\pp$) leaves an $O(\text{ampl})$-wide strip
+(``water not filling / water outside'').  It is \hl{cCurv}{purely geometric}, \emph{not} a
+flow.  Four second-order things, routinely conflated:
+\begin{itemize}\footnotesize
+  \item \hl{cCurv}{Geometric $\delta_0=ke$} (intrinsic$\to$Cartesian): puts the field IN the
+  meandering channel. \hl{cGrowth}{THIS is the gap}; \texttt{warp\_fill} is its leading order.
+  Parker~1982 keeps $O(\delta_0^3)$.
+  \item \hl{cMom}{Nonlinear $J(\pp,\zp)=O(\text{ampl}^2)$}: flow self-advection
+  (fattening/skewing of the bend).  Dropped -- we are linear.
+  \item \hl{cVeloc}{Ikeda $\nu=b/r_0$, kept to $O(\nu^2)$}: the FLOW's response to bend
+  \emph{curvature} (superelevation $\propto F^2$, near-bank velocity), taken at
+  $\delta_0\to0$.  A \emph{different parameter} -- curvature, not amplitude.
+  \item \hl{cBank}{Secondary flow $A\approx2.89$}: 3-D helical $\partial u/\partial z$ that
+  scours the outer bank.  Depth-averaged away in both models; Ikeda re-imports it as
+  $\eta'/H=-A\,\mathscr C'\tilde n$.  We omit it (a bed/cross-section effect).
+\end{itemize}
+\hl{cEros}{The gap is filled by the coordinate map (warp), not by any flow.}  Ikeda's
+$O(\nu^2)$ is curvature-flow at zero amplitude; secondary flow is 3-D bed-scour -- both are
+\emph{different} things, orthogonal to this planform gap.
+\end{frame}
+
+% --------------------------------------------------------------------------- %
 \begin{frame}{Along-channel bed: flow over a wavy bed}
 A bed varying \emph{along} the channel, $H(x,y)=\Hb(y)[1+a_x\cos(k_b x)]$ (Ikeda's
 alternate bars), breaks $x$-homogeneity -- Fourier modes couple, so it is

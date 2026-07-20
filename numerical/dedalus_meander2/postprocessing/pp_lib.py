@@ -157,7 +157,7 @@ def multipanel_eulerian_frames(res, plt):
         axd.legend(fontsize=8, ncol=3, loc="upper right"); axd.set_ylim(-0.5, 0.6)
 
         axs[1, 2].axis("off")
-        stat = ("FULLY EULERIAN\n(fixed domain, no warp,\nno per-frame norm)\n\n"
+        stat = ("EULERIAN POV\n\n"
                 rf"$k^*={k:g}$   bed $H\in[{Hbed.min():.2f},{Hbed.max():.2f}]$" "\n"
                 rf"true bank ampl $={amp:.1e}$" "\n"
                 rf"growth $=\times{amp/max(a0,1e-30):.2g}$ (real)")

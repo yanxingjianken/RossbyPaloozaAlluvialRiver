@@ -7,6 +7,7 @@ far more than the streamfunction alone -- momentum transfer + the bed cross-sect
 + the full dispersion, all in one movie.
 
 Run:  micromamba run -n dedalus env OMP_NUM_THREADS=1 python 03_multipanel.py [run_tag]
+Run:  micromamba run -n dedalus env OMP_NUM_THREADS=1 python 03_multipanel.py <run_tag> --eulerian
 """
 import glob
 import os
