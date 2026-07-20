@@ -77,3 +77,109 @@ def dispersion(cfg, ks=None, N=201):
         cph.append(o.real / kk)
         cg.append(group_velocity(float(kk), cfg, N=N))
     return ks, np.array(sig), np.array(cph), np.array(cg)
+
+
+def _cfg_from_attrs(a):
+    """Reconstruct a driver CONFIG dict from HDF5 attrs (for profiles/dispersion)."""
+    cfg = dict(MD.CONFIG)
+    for k in cfg:
+        if k in a:
+            v = a[k]
+            if isinstance(v, bytes):
+                v = v.decode()
+            if isinstance(v, str) and v == "None":
+                v = None
+            cfg[k] = v
+    return cfg
+
+
+def multipanel_frames(res, plt, max_frames=72):
+    """5-panel variable-H movie: psi_total, psi', momentum flux u'v', a y-z
+    cross-section (Ikeda Fig-2b view; DEPTH-AVERAGED -- bed H(y), banks, jet, no
+    resolved vertical flow), and a dispersion/stats panel.
+
+    Reuses channel_lib.warp_fill for the three planform panels.
+    """
+    a = res["attrs"]
+    cfg = _cfg_from_attrs(a)
+    k = float(a["kstar"]); m = int(a["mode_index"]); D = cfg["D"]
+    x, y, Lx = res["x"], res["y"], res["Lx"]
+    x2b = x / 2.0
+    Hbed = res["Hbed"]                                   # (Nx, Ny)
+    ub_y = MD.ubar(y, cfg)                               # base jet ubar(y)
+    # dispersion once (cheap GEP)
+    ks, sig, cph, cg = dispersion(cfg, ks=np.linspace(0.05, 1.5, 45))
+    a1 = CL.demodulate(0.5 * (res["top"] + res["bot"]), m)
+    gain0 = np.abs(a1[0])
+    # base transport streamfunction (flat-bed form is fine for the planform base)
+    pb = CL.psibar(y, D)
+
+    frames = []
+    for i in range(len(res["psis"])):
+        amp = np.abs(a1[i]); scale = 0.5 / max(amp, 1e-300)
+        pp = res["psis"][i]                              # Psi' (Nx, Ny)
+        dtop, dbot = scale * res["top"][i], scale * res["bot"][i]
+        xc = (-np.angle(a1[i]) / k) % Lx / 2.0
+        ixc = int(np.argmin(np.abs(x2b - xc)))
+        # momentum flux u'v' = -(1/H^2) dyPsi' dxPsi'
+        dyP = np.gradient(pp, y, axis=1)
+        dxP = np.gradient(pp, x, axis=0)
+        uv = -(dyP * dxP) / Hbed**2
+        uv = uv / max(np.max(np.abs(uv)), 1e-30)
+
+        fig, axs = plt.subplots(2, 3, figsize=(15.0, 6.0), dpi=100)
+        CL.warp_fill(axs[0, 0], x2b, y, pb[None, :] + scale * pp, dtop, dbot, vlim=1.3)
+        axs[0, 0].set_title(r"$\psi_{\rm total}$ (streamlines)", fontsize=10)
+        CL.warp_fill(axs[0, 1], x2b, y, scale * pp, dtop, dbot, vlim=0.55)
+        axs[0, 1].set_title(r"$\psi'$ (perturbation)", fontsize=10)
+        CL.warp_fill(axs[0, 2], x2b, y, uv, dtop, dbot, vlim=1.0)
+        axs[0, 2].set_title(r"momentum flux $\overline{u'v'}$ "
+                            r"($-\frac{1}{H^2}\partial_y\Psi'\partial_x\Psi'$)",
+                            fontsize=10)
+        for ax in axs[0]:
+            ax.axvline(xc, color=COLORS["upstream"], lw=1.5, alpha=0.8)
+            ax.set_xlim(0, Lx / 2); ax.set_ylim(-2.6, 2.6)
+            ax.set_xlabel(r"downstream $x/2b$", fontsize=8)
+
+        # ---- y-z cross-section at the tracked slice x=xc (Ikeda Fig 2b view) ---
+        axc = axs[1, 0]
+        Hy = Hbed[ixc]                                   # bed depth H(y) at xc
+        u_tot = ub_y / Hy                                # depth-averaged jet u=ubar/H
+        zg = np.linspace(-Hy.max() * 1.1, 0.25, 60)
+        U2 = np.where(zg[:, None] > -Hy[None, :], u_tot[None, :], np.nan)
+        pc = axc.pcolormesh(y, zg, U2, cmap="viridis", shading="auto")
+        axc.plot(y, -Hy, color=COLORS["bank"], lw=2.5)        # bed profile H(y)
+        axc.fill_between(y, -Hy, zg.min(), color=COLORS["bank"], alpha=0.25)
+        axc.axhline(0, color="0.3", lw=1.5)                   # rigid lid
+        axc.plot([-1, -1], [-Hy[0], 0.15], color=COLORS["psi1"], lw=3)   # walls
+        axc.plot([1, 1], [-Hy[-1], 0.15], color=COLORS["psi1"], lw=3)
+        fig.colorbar(pc, ax=axc, fraction=0.045, pad=0.02,
+                     label=r"$\bar u/H$")
+        axc.set_xlim(-1.4, 1.4); axc.set_ylim(zg.min(), 0.4)
+        axc.set_xlabel(r"cross-channel $y/b$"); axc.set_ylabel(r"depth $z$")
+        axc.set_title(rf"$y$-$z$ cross-section at $x/2b={xc:.1f}$ "
+                      r"(depth-averaged; no vertical flow)", fontsize=9)
+
+        # ---- dispersion + stats -------------------------------------------- #
+        axd = axs[1, 1]
+        axd.plot(ks, sig, color=COLORS["growth"], lw=1.8, label=r"$\sigma^*$")
+        axd.plot(ks, cph, color=COLORS["upstream"], lw=1.8, label=r"$c^*$")
+        axd.plot(ks, cg, color=COLORS["momentum"], lw=1.8, label=r"$c_g$")
+        axd.axhline(0, color="k", lw=0.6); axd.axvline(k, color="0.5", lw=1, ls=":")
+        axd.set_xlabel(r"$k^*$"); axd.set_title("dispersion", fontsize=10)
+        axd.legend(fontsize=8, ncol=3, loc="upper right")
+        axd.set_ylim(-0.5, 0.6)
+
+        axs[1, 2].axis("off")
+        Hmin, Hmax = Hbed.min(), Hbed.max()
+        oi = ks[np.argmin(np.abs(ks - k))]
+        stat = (rf"$k^*={k:g}$   $\lambda/2b={np.pi/k:.1f}$" "\n"
+                rf"bed $H\in[{Hmin:.2f},{Hmax:.2f}]$" "\n"
+                rf"$\sigma^*_{{\rm EVP}}={a['sigma_evp']:.3f}$" "\n"
+                rf"$D={D}$  $\gamma={cfg['gamma']}$" "\n"
+                rf"gain $e^{{\sigma t}}=\times{amp/gain0:.2g}$")
+        axs[1, 2].text(0.05, 0.9, stat, va="top", ha="left", fontsize=12,
+                       transform=axs[1, 2].transAxes)
+        fig.tight_layout()
+        frames.append(CL.fig_to_rgb(fig)); plt.close(fig)
+    return frames
