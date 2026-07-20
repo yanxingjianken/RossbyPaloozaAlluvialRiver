@@ -147,6 +147,27 @@ matrices.  Safe, precedented route (as in the QG/shallow-water scripts):
 \end{frame}
 
 % --------------------------------------------------------------------------- %
+\begin{frame}{Along-channel bed: flow over a wavy bed}
+A bed varying \emph{along} the channel, $H(x,y)=\Hb(y)[1+a_x\cos(k_b x)]$ (Ikeda's
+alternate bars), breaks $x$-homogeneity -- Fourier modes couple, so it is
+\hl{cEros}{IVP-only} (no normal modes).  The base flow is fixed by
+\hl{cChannel}{discharge conservation} $\dx(Hu)=0$:
+\[
+Hu_0=\Hb(y)\ub(y)\ \Rightarrow\ \hl{cVeloc}{$u_0(x,y)=\dfrac{\Hb(y)\,\ub(y)}{H(x,y)}$}
+\qquad(a_x{=}0:\ u_0=\ub,\ \text{the }\Hb(y)\text{ case}).
+\]
+Flow \hl{cVeloc}{speeds over bars, slows over pools}.  With prognostic PV $q'=\zp/H$ the
+system stays polynomial-coefficient:
+\[
+H\dt q'+\Hb\ub\,\dx q'-\dy\Pp\,\dx\bar q_0+\dx\Pp\,\dy\bar q_0+\gamma q'=0,\quad
+H\nabla^2\Pp-\dx H\,\dx\Pp-\dy H\,\dy\Pp-H^{3}q'=0.
+\]
+\hl{cCurv}{Bed$\leftrightarrow$bank resonance} (default $k_b=k$, bar wavelength $=$ meander
+wavelength $=$ the Ikeda bar$\leftrightarrow$bend coupling): at $a_x{=}0.25$ the bed shifts
+$\sigma\ 0.10\!\to\!0.11$, $c\ {-}0.26\!\to\!{-}0.19$ (enhanced growth, slower upstream march).
+\end{frame}
+
+% --------------------------------------------------------------------------- %
 \begin{frame}{Verification ladder (all green)}
 \begin{center}\small
 \begin{tabular}{@{}lll@{}}
@@ -157,6 +178,7 @@ flat-bed reduction & variable-$H$ GEP vs \texttt{VL.channel\_modes} ($H{=}1$) & 
 $d3$ EVP vs GEP & flat + bumped bed, both closures & \hl{cGrowth}{$4.4\times10^{-9}$}\\
 topographic Rossby & $f_0{=}0$: $\bt{=}0$; \ $f_0{\ne}0$: propagating wave & \hl{cGrowth}{as predicted}\\
 IVP vs EVP & measured $\sigma,c$, flat + bumped bed & \hl{cGrowth}{$0.1\%$}\\
+along-channel bed & \texttt{build\_ivp\_Hxy} at $a_x{=}0$ vs $\Hb(y)$ EVP & \hl{cGrowth}{$0.1\%$}\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -171,9 +193,9 @@ agree to $\sim10^{-9}$ -- the $\Hb^2$-weighted PV reformulation is correct.
   \item A deeper \hl{cVeloc}{thalweg} $H(y)=1+a_H(1-y^2)$ shifts the growth band and the
   \hl{cMom}{group-velocity flip} $k_g$ (the upstream/downstream momentum boundary) to
   the right -- modestly, because a \emph{symmetric} bump partly cancels in $\bt$.
-  \item Bigger effects are expected from an \hl{cEros}{asymmetric} bed (point-bar) and
-  from \hl{cEros}{along-channel} bedforms $H(x,y)$ -- the latter couples Fourier modes
-  (IVP-only) and needs a base-flow-over-wavy-bed treatment (deferred, honestly flagged).
+  \item \hl{cGrowth}{Along-channel bedforms $H(x,y)$ now done} (discharge-conserving base
+  flow, previous slide): at bed$\leftrightarrow$bank resonance the bars measurably force the
+  bends.  Bigger effects still expected from an \hl{cEros}{asymmetric} (point-bar) bed.
   \item Core is one Dedalus driver (\texttt{meander\_driver.py}); all figures/movies in
   \texttt{postprocessing/}.  Flat bed always recovers \texttt{dedalus\_meander}.
 \end{itemize}
