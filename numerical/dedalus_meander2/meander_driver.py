@@ -419,6 +419,95 @@ def build_ivp_H(cfg, Nx=None, Ny=None):
                 Lx=cfg["Lx"], dist=dist, uv_op=uv_op)
 
 
+def build_ivp_Hxy(cfg, Nx=None, Ny=None):
+    """2-D IVP over an ALONG-CHANNEL varying bed H(x,y) (couples Fourier modes).
+
+    Discharge-conserving base flow  u0 = Hbar(y) ubar(y) / H(x,y)  (transport
+    Hbar*ubar conserved along x; along_amp=0 -> u0=ubar -> the Hbar(y) case).
+    Prognostic q'=zeta'/H (clean polynomial coeffs); Psi' auxiliary:
+
+      H dt(q') + Hbar*ubar dx(q') - dy(Psi') dx(qbar0) + dx(Psi') dy(qbar0)
+        + gamma q' = 0                                        (PV tendency, rayleigh)
+      H lap(Psi') - Hx dx(Psi') - Hy dy(Psi') - H^3 q' = 0    (elliptic, x Hbar^2-type)
+      qbar0 = -dy(u0)/H  (base PV, prescribed);  banks: Psi'(±1)=psib±, relax.
+
+    along_kbed defaults to kstar (BED-BANK RESONANCE, the Ikeda bar<->bend coupling).
+    """
+    import dedalus.public as d3
+    Nx = Nx or cfg["Nx"]
+    Ny = Ny or cfg["Ny"]
+    E, gamma = bank_E(cfg), cfg["gamma"]
+    kbed = cfg["kstar"] if cfg.get("along_kbed") in (None, "None") else cfg["along_kbed"]
+    cfgb = dict(cfg, along_kbed=kbed)
+    coords = d3.CartesianCoordinates("x", "y")
+    dist = d3.Distributor(coords, dtype=np.float64)
+    xbasis = d3.RealFourier(coords["x"], size=Nx, bounds=(0.0, cfg["Lx"]))
+    ybasis = d3.Chebyshev(coords["y"], size=Ny, bounds=(-1.0, 1.0))
+    x, y = dist.local_grids(xbasis, ybasis)
+    dx = lambda A: d3.Differentiate(A, coords["x"])
+    dy = lambda A: d3.Differentiate(A, coords["y"])
+
+    psi = dist.Field(name="psi", bases=(xbasis, ybasis))
+    q = dist.Field(name="q", bases=(xbasis, ybasis))
+    psib_top = dist.Field(name="psib_top", bases=(xbasis,))
+    psib_bot = dist.Field(name="psib_bot", bases=(xbasis,))
+    tau1 = dist.Field(name="tau1", bases=(xbasis,))
+    tau2 = dist.Field(name="tau2", bases=(xbasis,))
+
+    def field2d(name, arr):
+        f = dist.Field(name=name, bases=(xbasis, ybasis)); f["g"] = arr; return f
+
+    yg = y                                  # (1, Ny)
+    Hb = hbar(yg, cfg); ubv = ubar(yg, cfg)        # (1, Ny)
+    Harr = bed_depth(x, y, cfgb)                    # (Nx, Ny)
+    H = field2d("H", Harr)
+    Hx = dx(H).evaluate(); Hx.name = "Hx"
+    Hy = dy(H).evaluate(); Hy.name = "Hy"
+    H3 = field2d("H3", Harr**3)
+    Hbub = field2d("Hbub", np.broadcast_to(Hb * ubv, Harr.shape).copy())
+    u0 = field2d("u0", (Hb * ubv) / Harr)
+    invH = field2d("invH", 1.0 / Harr)
+    qbar0 = (-dy(u0) * invH).evaluate(); qbar0.name = "qbar0"
+    qbx = dx(qbar0).evaluate(); qbx.name = "qbx"
+    qby = dy(qbar0).evaluate(); qby.name = "qby"
+
+    lift_basis = ybasis.derivative_basis(2)
+    lift = lambda A, n: d3.Lift(A, lift_basis, n)
+    ns = dict(psi=psi, q=q, psib_top=psib_top, psib_bot=psib_bot, tau1=tau1,
+              tau2=tau2, E=E, gamma=gamma, H=H, Hx=Hx, Hy=Hy, H3=H3, Hbub=Hbub,
+              qbx=qbx, qby=qby, dx=dx, dy=dy, lap=d3.Laplacian, lift=lift,
+              dt=d3.TimeDerivative)
+    problem = d3.IVP([psi, q, psib_top, psib_bot, tau1, tau2], namespace=ns)
+    problem.add_equation("H*lap(psi) - Hx*dx(psi) - Hy*dy(psi) - H3*q"
+                         " + lift(tau1,-1) + lift(tau2,-2) = 0")
+    problem.add_equation("H*dt(q) + Hbub*dx(q) - qbx*dy(psi) + qby*dx(psi)"
+                         " + gamma*q = 0")
+    problem.add_equation("psi(y=1) - psib_top = 0")
+    problem.add_equation("psi(y=-1) - psib_bot = 0")
+    problem.add_equation("dt(psib_top) + E*psib_top - E*psi(y=0) = 0")
+    problem.add_equation("dt(psib_bot) + E*psib_bot - E*psi(y=0) = 0")
+    solver = problem.build_solver(d3.RK222)
+    return dict(solver=solver, psi=psi, q=q, psib_top=psib_top,
+                psib_bot=psib_bot, x=x.ravel(), y=y.ravel(), Nx=Nx, Ny=Ny,
+                Lx=cfg["Lx"], dist=dist, kbed=kbed)
+
+
+def seed_ivp_Hxy(built, modes):
+    """Seed sinusoidal banks + harmonic Psi'; q'=0 initially (projects on step 1)."""
+    psi, q = built["psi"], built["q"]
+    top, bot = built["psib_top"], built["psib_bot"]
+    x, y = built["x"], built["y"]
+    psi["g"][:] = 0.0
+    q["g"][:] = 0.0
+    tb = np.zeros_like(x)
+    for (k, a, x0) in modes:
+        tb = tb + a * np.cos(k * (x - x0))
+        psi["g"] += (a * np.cos(k * (x[:, None] - x0))
+                     * np.cosh(k * y[None, :]) / np.cosh(k))
+    top["g"][:] = tb[:, None]
+    bot["g"][:] = tb[:, None]
+
+
 def seed_ivp_H(built, modes):
     """Analytic DAE-consistent IC: sinusoidal banks + harmonic Psi (zeta~0).
 
@@ -444,8 +533,13 @@ def run_ivp_H(cfg, tag=None):
     """Run one variable-H IVP and write raw HDF5 to outputs/.  Returns the path."""
     import h5py
     k = cfg["kstar"]
-    built = build_ivp_H(cfg)
-    seed_ivp_H(built, [(k, cfg["A0"], 0.0)])
+    xbed = cfg["along_amp"] > 0.0                      # along-channel bed?
+    if xbed:
+        built = build_ivp_Hxy(cfg)
+        seed_ivp_Hxy(built, [(k, cfg["A0"], 0.0)])
+    else:
+        built = build_ivp_H(cfg)
+        seed_ivp_H(built, [(k, cfg["A0"], 0.0)])
     # auto duration ~ 5 e-foldings from the EVP growth rate
     om = evp_bank_mode_H(k, cfg, Ny=min(cfg["Ny"], 128))
     sig = float(om.imag)
@@ -480,7 +574,10 @@ def run_ivp_H(cfg, tag=None):
             record()
 
     m = int(round(k * cfg["Lx"] / (2 * np.pi)))
-    tag = tag or f"k{k:.2f}_amp{cfg['cross_amp']:.2f}_{cfg['friction']}".replace(".", "p")
+    kbed = built.get("kbed", cfg.get("along_kbed"))
+    cfgb = dict(cfg, along_kbed=(kbed if kbed is not None else k))
+    lab = f"amp{cfg['cross_amp']:.2f}" if not xbed else f"xbed{cfg['along_amp']:.2f}"
+    tag = tag or f"k{k:.2f}_{lab}_{cfg['friction']}".replace(".", "p")
     path = os.path.join(OUT_DIR, f"run_{tag}.h5")
     with h5py.File(path, "w") as h:
         h.create_dataset("t", data=np.array(ts))
@@ -490,9 +587,10 @@ def run_ivp_H(cfg, tag=None):
         h.create_dataset("x", data=built["x"])
         h.create_dataset("y", data=built["y"])
         h.create_dataset("Hbed", data=bed_depth(built["x"][:, None],
-                                                built["y"][None, :], cfg))
+                                                built["y"][None, :], cfgb))
         for kk, vv in cfg.items():
             h.attrs[kk] = ("None" if vv is None else vv)
+        h.attrs["along_kbed_resolved"] = (kbed if kbed is not None else k)
         h.attrs["mode_index"] = m
         h.attrs["sigma_evp"] = sig
         h.attrs["t_end"] = t_end
@@ -621,6 +719,29 @@ def _selftest_ivp():
               f"  c={c:.4f} (EVP {c_e:.4f}, {dc*100:.1f}%)  R2={r2:.4f}")
         assert ds < 0.03 and dc < 0.03, f"amp={amp}: IVP-vs-EVP off (>3%)"
     print("Stage 4 PASSED  (IVP == EVP within 3%, flat + bumped bed)")
+
+    print("\nStage 5 -- along-channel-bed IVP (Hxy): along_amp=0 reduces to Hbar(y)")
+    print("-" * 74)
+    cfg = dict(CONFIG, cross_amp=0.3, along_amp=0.0, Ny=96, Lx=2 * np.pi / k)
+    built = build_ivp_Hxy(dict(cfg, kstar=k), Nx=16, Ny=96)
+    seed_ivp_Hxy(built, [(k, 1e-3, 0.0)])
+    solver = built["solver"]; top, bot = built["psib_top"], built["psib_bot"]
+    om = evp_bank_mode_H(k, cfg, Ny=96); t_end = min(5.0 / max(om.imag, 1e-3), 120.0)
+    dt = 0.05; nstep = int(round(t_end / dt)); solver.stop_iteration = nstep + 1
+    ts, ser = [], []
+    for it in range(nstep + 1):
+        if it:
+            solver.step(dt)
+        top.change_scales(1); bot.change_scales(1)
+        ts.append(solver.sim_time)
+        ser.append(0.5 * (np.array(top["g"]).ravel() + np.array(bot["g"]).ravel()))
+    a = demodulate(np.array(ser), 1)
+    sig, c, r2 = fit_sigma_c(np.array(ts), a, k, (t_end / 3, t_end))
+    ds = abs(sig - om.imag) / max(abs(om.imag), 1e-3)
+    print(f"  Hxy(along_amp=0): IVP sigma={sig:.4f} (Hbar EVP {om.imag:.4f}, "
+          f"{ds*100:.1f}%)  c={c:.4f} ({om.real/k:.4f})  R2={r2:.4f}")
+    assert ds < 0.03, "build_ivp_Hxy must reduce to the Hbar(y) case at along_amp=0"
+    print("Stage 5 PASSED  (x-varying-bed solver reduces to the validated Hbar(y) case)")
 
 
 def main():
