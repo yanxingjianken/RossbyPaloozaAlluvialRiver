@@ -70,10 +70,15 @@ to ~1e-9 — the Ĥ²-weighted, ζ-auxiliary reformulation is correct.
   true topographic Rossby waves (waves even at D=0) — beyond the real river.
 - A **symmetric** thalweg bump modulates the dispersion only modestly (partial cancellation
   in β_top); asymmetric (point-bar) beds would do more.
-- **Along-channel** bed `H(x,y)` (`along_amp>0`) couples Fourier modes (IVP-only, no EVP)
-  and needs a base-flow-over-wavy-bed treatment — **deferred** (the driver carries the
-  config; the validated path is `H̄(y)`). Likewise `momentum`-closure variable-H friction
-  drops an O(∇H) curl correction (flat-bed-exact).
+- **Along-channel** bed `H(x,y)` (`along_amp>0`) couples Fourier modes (IVP-only, no EVP).
+  **Done** (`build_ivp_Hxy`): discharge-conserving base flow `u₀=H̄(y)ū(y)/H(x,y)` (transport
+  H̄ū conserved), prognostic `q'=ζ'/H`, x-Ĥ²-weighted well-banded form. Verified: `along_amp=0`
+  reduces to the H̄(y) case to **0.1%** (self-test Stage 5). `along_kbed` defaults to `kstar`
+  (**bed↔bank resonance** = the Ikeda bar↔bend coupling); at resonance the bed measurably
+  shifts σ and c (e.g. amp=0.25: σ 0.103→0.109, c −0.261→−0.189). The `03_multipanel` y-z
+  cross-section becomes **dynamic** (the bed sweeps in x).
+- `momentum`-closure variable-H friction drops an O(∇H) curl correction (flat-bed-exact);
+  the along-channel-bed solver is rayleigh-closure.
 
 ## File map
 
