@@ -217,9 +217,16 @@ agree to $\sim10^{-9}$ -- the $\Hb^2$-weighted PV reformulation is correct.
   \item A deeper \hl{cVeloc}{thalweg} $H(y)=1+a_H(1-y^2)$ shifts the growth band and the
   \hl{cMom}{group-velocity flip} $k_g$ (the upstream/downstream momentum boundary) to
   the right -- modestly, because a \emph{symmetric} bump partly cancels in $\bt$.
-  \item \hl{cGrowth}{Along-channel bedforms $H(x,y)$ now done} (discharge-conserving base
-  flow, previous slide): at bed$\leftrightarrow$bank resonance the bars measurably force the
-  bends.  Bigger effects still expected from an \hl{cEros}{asymmetric} (point-bar) bed.
+  \item \hl{cGrowth}{Along-channel bedforms $H(x,y)$ done} (discharge-conserving base flow):
+  at bed$\leftrightarrow$bank resonance the bars measurably force the bends.
+  \item \hl{cGrowth}{Nonlinear $J(\pp,\zp)$ done} (\texttt{--nonlinear}): small ampl reduces
+  to linear (self-test Stage~6); finite ampl generates the \hl{cMom}{3rd-harmonic
+  fattening/skewing $\propto\text{ampl}^2$} (Parker~1982).  Deep saturation needs
+  $\nabla^8$ hyperviscosity (as in \texttt{shutts\_1983}); the weakly-nonlinear window is
+  clean.
+  \item \emph{Next}: secondary flow $A\approx2.89$ = curvature-induced bed $\eta'=-A\mathscr
+  C'\tilde n$ (Ikeda's mechanism) coupling meander curvature $\mathscr C'\propto\partial_x^2\psi_b$
+  to the bed -- a curvature$\to$bed feedback grafted onto the channel-Rossby model.
   \item Core is one Dedalus driver (\texttt{meander\_driver.py}); all figures/movies in
   \texttt{postprocessing/}.  Flat bed always recovers \texttt{dedalus\_meander}.
 \end{itemize}

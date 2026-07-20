@@ -63,6 +63,19 @@ fields at y=±b.
 Two independent discretizations (Dedalus Chebyshev spectral & an FD+Richardson GEP) agree
 to ~1e-9 — the Ĥ²-weighted, ζ-auxiliary reformulation is correct.
 
+## Finite-amplitude (nonlinear) option
+
+`--nonlinear` (or `CONFIG["nonlinear"]=True`) adds the O(ampl²) self-advection `J(ψ',ζ')`
+(the flow's own nonlinearity, the finite-amplitude correction — **not** the geometric gap,
+**not** secondary flow). Verified (self-test Stage 6): small amplitude reduces to the linear
+growth rate; finite amplitude generates the **3rd-harmonic fattening/skewing ∝ amplitude²**
+(Parker 1982). It carries dealiasing (3/2) + a vorticity diffusion `-nu_h*lap(zeta)` (2 taus,
+`zeta(±1)=0`) to control the cascade; runs auto-cap to the weakly-nonlinear window
+(`amplitude < ~1.2`). Deep saturation needs ∇⁸ hyperviscosity (as in the user's
+`shutts_1983.py`) — a focused numerics task; the weakly-nonlinear regime is clean.
+
+Run: `python meander_driver.py --mode ivp --nonlinear`.
+
 ## Honest caveats
 
 - **Non-rotating river** (`f0=0`): the bed *modulates* the shear-β; a bed bump alone
