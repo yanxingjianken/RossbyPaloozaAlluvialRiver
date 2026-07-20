@@ -84,8 +84,6 @@ CONFIG = dict(
     ECOEF=None,          # bank erodibility eps*C_f; None -> ECOEF[friction]
     # --- perturbation / numerics ----------------------------------------- #
     kstar=0.30,          # single-mode wavenumber (ivp) or EVP point
-    nonlinear=False,     # add J(psi',zeta') self-advection => finite-amplitude flow
-    nu_h=3e-3,           # vorticity diffusion -nu_h*lap(zeta) (nonlinear cascade control)
     Ny=192,              # cross-channel Chebyshev / GEP points
     Nx=64,               # streamwise Fourier (ivp)
     dt=0.02,
@@ -373,11 +371,10 @@ def build_ivp_H(cfg, Nx=None, Ny=None):
     Nx = Nx or cfg["Nx"]
     Ny = Ny or cfg["Ny"]
     E = bank_E(cfg)
-    dealias = 3 / 2 if cfg.get("nonlinear", False) else 1
     coords = d3.CartesianCoordinates("x", "y")
     dist = d3.Distributor(coords, dtype=np.float64)
-    xbasis = d3.RealFourier(coords["x"], size=Nx, bounds=(0.0, cfg["Lx"]), dealias=dealias)
-    ybasis = d3.Chebyshev(coords["y"], size=Ny, bounds=(-1.0, 1.0), dealias=dealias)
+    xbasis = d3.RealFourier(coords["x"], size=Nx, bounds=(0.0, cfg["Lx"]))
+    ybasis = d3.Chebyshev(coords["y"], size=Ny, bounds=(-1.0, 1.0))
     x, y = dist.local_grids(xbasis, ybasis)
 
     psi = dist.Field(name="psi", bases=(xbasis, ybasis))
@@ -393,8 +390,7 @@ def build_ivp_H(cfg, Nx=None, Ny=None):
     ub, uby, bt = ubar(yg, cfg), ubar_y(yg, cfg), beta_top(yg, cfg)
     ncc_vals = dict(Hbar=Hb, Hbar_y=Hby, H2=Hb**2, H2u=Hb**2 * ub,
                     beta2=Hb**2 * bt, gamH=cfg["gamma"] * Hb,
-                    gHu=cfg["gamma"] * Hb * ub, gHuy=cfg["gamma"] * Hb * uby,
-                    HyoH=Hby / Hb)                     # Hbar_y/Hbar (nonlinear term)
+                    gHu=cfg["gamma"] * Hb * ub, gHuy=cfg["gamma"] * Hb * uby)
     nccs = {}
     for name, arr in ncc_vals.items():
         f = dist.Field(name=name, bases=(ybasis,))
@@ -410,30 +406,9 @@ def build_ivp_H(cfg, Nx=None, Ny=None):
               lift=lift, dt=d3.TimeDerivative)
     ns.update(nccs)
 
-    nl = cfg.get("nonlinear", False)
-    if nl:
-        tau3 = dist.Field(name="tau3", bases=(xbasis,))
-        tau4 = dist.Field(name="tau4", bases=(xbasis,))
-        ns.update(tau3=tau3, tau4=tau4, nuh=cfg.get("nu_h", 3e-3))
-        variables = [psi, zeta, psib_top, psib_bot, tau1, tau2, tau3, tau4]
-    else:
-        variables = [psi, zeta, psib_top, psib_bot, tau1, tau2]
-    problem = d3.IVP(variables, namespace=ns)
+    problem = d3.IVP([psi, zeta, psib_top, psib_bot, tau1, tau2], namespace=ns)
     problem.add_equation(_ELLIPTIC_EQ)
-    if nl:
-        # Finite-amplitude: add the O(ampl^2) self-advection  H^2 * U'.grad(q')
-        # = J(psi',zeta') - (Hbar_y/Hbar) zeta' dx(psi')  on the RHS (explicit, IMEX),
-        # plus vorticity diffusion -nuh*lap(zeta) + 2 taus to control the enstrophy
-        # cascade (zeta(y=+-1)=0).  Flat bed Hbar=1 -> RHS = -J(psi',zeta').
-        pv = _pv_eq(cfg["friction"]).replace(
-            "= 0",
-            "- nuh*lap(zeta) + lift(tau3,-1) + lift(tau4,-2)"
-            " = -(dx(psi)*dy(zeta) - dy(psi)*dx(zeta)) + HyoH*zeta*dx(psi)")
-        problem.add_equation(pv)
-        problem.add_equation("zeta(y=1) = 0")
-        problem.add_equation("zeta(y=-1) = 0")
-    else:
-        problem.add_equation(_pv_eq(cfg["friction"]))
+    problem.add_equation(_pv_eq(cfg["friction"]))
     for eq in _BANK_EQS:
         problem.add_equation(eq)
     solver = problem.build_solver(d3.RK222)
@@ -559,22 +534,16 @@ def run_ivp_H(cfg, tag=None):
     import h5py
     k = cfg["kstar"]
     xbed = cfg["along_amp"] > 0.0                      # along-channel bed?
-    nl = cfg.get("nonlinear", False)
-    A0 = max(cfg["A0"], 0.05) if nl else cfg["A0"]     # finite ampl for nonlinear
     if xbed:
         built = build_ivp_Hxy(cfg)
-        seed_ivp_Hxy(built, [(k, A0, 0.0)])
+        seed_ivp_Hxy(built, [(k, cfg["A0"], 0.0)])
     else:
         built = build_ivp_H(cfg)
-        seed_ivp_H(built, [(k, A0, 0.0)])
+        seed_ivp_H(built, [(k, cfg["A0"], 0.0)])
     # auto duration ~ 5 e-foldings from the EVP growth rate
     om = evp_bank_mode_H(k, cfg, Ny=min(cfg["Ny"], 128))
     sig = float(om.imag)
-    if nl:
-        # cap so the bank amplitude stays weakly-nonlinear (< ~1.2) before the
-        # (uncontrolled) enstrophy cascade -- shows fattening/skewing, not turbulence
-        t_end = float(np.log(1.2 / A0) / max(sig, 0.02))
-    elif cfg["t_end"] is not None:
+    if cfg["t_end"] is not None:
         t_end = cfg["t_end"]
     elif sig > 1e-3:
         t_end = min(5.0 / sig, 160.0)
@@ -607,9 +576,19 @@ def run_ivp_H(cfg, tag=None):
     m = int(round(k * cfg["Lx"] / (2 * np.pi)))
     kbed = built.get("kbed", cfg.get("along_kbed"))
     cfgb = dict(cfg, along_kbed=(kbed if kbed is not None else k))
-    lab = f"amp{cfg['cross_amp']:.2f}" if not xbed else f"xbed{cfg['along_amp']:.2f}"
-    if nl:
-        lab = "nl_" + lab
+    # --- unambiguous label: lead with the bed's functional form H(x)/H(y)/H(x,y)
+    #     then name each bedform (crossbed = cross-channel thalweg = y-dependence;
+    #     alongbed = along-channel bars = x-dependence) ------------------------- #
+    cross = cfg["cross_amp"] > 0
+    along = cfg["along_amp"] > 0
+    if cross and along:
+        lab = f"Hxy_crossbed{cfg['cross_amp']:.2f}_alongbed{cfg['along_amp']:.2f}"
+    elif along:
+        lab = f"Hx_alongbed{cfg['along_amp']:.2f}"
+    elif cross:
+        lab = f"Hy_crossbed{cfg['cross_amp']:.2f}"
+    else:
+        lab = "flatbed"
     tag = tag or f"k{k:.2f}_{lab}_{cfg['friction']}".replace(".", "p")
     path = os.path.join(OUT_DIR, f"run_{tag}.h5")
     with h5py.File(path, "w") as h:
@@ -776,28 +755,6 @@ def _selftest_ivp():
     assert ds < 0.03, "build_ivp_Hxy must reduce to the Hbar(y) case at along_amp=0"
     print("Stage 5 PASSED  (x-varying-bed solver reduces to the validated Hbar(y) case)")
 
-    print("\nStage 6 -- nonlinear J(psi',zeta'): small-ampl reduces to linear")
-    print("-" * 74)
-    cfg = dict(CONFIG, cross_amp=0.0, nonlinear=True, nu_h=1e-3, Lx=2 * np.pi / k)
-    om = evp_bank_mode_H(k, cfg, Ny=96)
-    built = build_ivp_H(dict(cfg, kstar=k), Nx=48, Ny=96)
-    seed_ivp_H(built, [(k, 1e-4, 0.0)])
-    solver = built["solver"]; top = built["psib_top"]
-    dt = 0.01; nstep = int(round(50.0 / dt)); solver.stop_iteration = nstep + 1
-    ts, amp = [], []
-    for it in range(nstep + 1):
-        if it:
-            solver.step(dt)
-        top.change_scales(1)
-        ts.append(solver.sim_time)
-        amp.append(float(np.max(np.abs(np.array(top["g"]).ravel()))))
-    sig = np.polyfit(np.array(ts)[200:], np.log(np.array(amp)[200:]), 1)[0]
-    ds = abs(sig - om.imag) / max(abs(om.imag), 1e-3)
-    print(f"  nonlinear(A0=1e-4): sigma={sig:.4f} (linear EVP {om.imag:.4f}, {ds*100:.1f}%)")
-    assert ds < 0.05, "small-amplitude nonlinear must reduce to the linear growth rate"
-    print("Stage 6 PASSED  (nonlinear self-advection -> linear at small amplitude;"
-          " finite ampl gives 3rd-harmonic fattening ~ ampl^2)")
-
 
 def main():
     ap = argparse.ArgumentParser(description="dedalus_meander2 variable-H PV driver")
@@ -807,19 +764,12 @@ def main():
     ap.add_argument("--cross-amp", type=float, default=None)
     ap.add_argument("--along-amp", type=float, default=None)
     ap.add_argument("--friction", default=None, choices=("rayleigh", "momentum"))
-    ap.add_argument("--nonlinear", action="store_true",
-                    help="add J(psi',zeta') self-advection => finite-amplitude flow")
-    ap.add_argument("--dt", type=float, default=None)
     args = ap.parse_args()
     cfg = dict(CONFIG)
     for k, a in (("kstar", args.kstar), ("cross_amp", args.cross_amp),
-                 ("along_amp", args.along_amp), ("friction", args.friction),
-                 ("dt", args.dt)):
+                 ("along_amp", args.along_amp), ("friction", args.friction)):
         if a is not None:
             cfg[k] = a
-    if args.nonlinear:
-        cfg["nonlinear"] = True
-        cfg["dt"] = cfg["dt"] if args.dt is not None else 0.008
 
     if args.mode == "selftest":
         _selftest_reduction()

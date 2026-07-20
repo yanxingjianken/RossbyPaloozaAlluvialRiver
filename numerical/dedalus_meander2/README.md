@@ -4,7 +4,7 @@ Variable riverbed **H(x,y)** generalization of the constant-depth vorticity-mean
 model in [`../dedalus_meander/`](../dedalus_meander/). Dropping the flat-bed assumption
 turns absolute-vorticity conservation into **potential-vorticity (PV) conservation**
 `D/Dt(ζ/H)`, and the Rossby restoring force gains a **topographic-shear β**. The full
-derivation is in [`derivations/variable_h_pv.pdf`](derivations/) (9-slide deck).
+derivation is in [`derivations/variable_h_pv.pdf`](derivations/) (11-slide deck).
 
 ## Architecture: one core Dedalus file + a postprocessing folder
 
@@ -24,7 +24,8 @@ micromamba run -n dedalus env OMP_NUM_THREADS=1 python meander_driver.py --mode 
 micromamba run -n dedalus env OMP_NUM_THREADS=1 python meander_driver.py --mode ivp --kstar 0.3 --cross-amp 0.3
 micromamba run -n dedalus env OMP_NUM_THREADS=1 python meander_driver.py --mode sweep
 cd postprocessing && micromamba run -n dedalus env OMP_NUM_THREADS=1 python 01_dispersion.py
-                     micromamba run -n dedalus env OMP_NUM_THREADS=1 python 02_planform_movies.py
+                     micromamba run -n dedalus env OMP_NUM_THREADS=1 python 03_multipanel.py            # normalized
+                     micromamba run -n dedalus env OMP_NUM_THREADS=1 python 03_multipanel.py --eulerian  # fully-Eulerian
 ```
 
 ## The physics (one paragraph)
@@ -63,18 +64,30 @@ fields at y=±b.
 Two independent discretizations (Dedalus Chebyshev spectral & an FD+Richardson GEP) agree
 to ~1e-9 — the Ĥ²-weighted, ζ-auxiliary reformulation is correct.
 
-## Finite-amplitude (nonlinear) option
+## The model is strictly linear (by design)
 
-`--nonlinear` (or `CONFIG["nonlinear"]=True`) adds the O(ampl²) self-advection `J(ψ',ζ')`
-(the flow's own nonlinearity, the finite-amplitude correction — **not** the geometric gap,
-**not** secondary flow). Verified (self-test Stage 6): small amplitude reduces to the linear
-growth rate; finite amplitude generates the **3rd-harmonic fattening/skewing ∝ amplitude²**
-(Parker 1982). It carries dealiasing (3/2) + a vorticity diffusion `-nu_h*lap(zeta)` (2 taus,
-`zeta(±1)=0`) to control the cascade; runs auto-cap to the weakly-nonlinear window
-(`amplitude < ~1.2`). Deep saturation needs ∇⁸ hyperviscosity (as in the user's
-`shutts_1983.py`) — a focused numerics task; the weakly-nonlinear regime is clean.
+This package solves the **linear** variable-depth PV instability only. The two
+second-order effects sometimes conflated with it — the O(ampl²) self-advection `J(ψ',ζ')`
+(finite-amplitude fattening/skewing, Parker 1982) and Ikeda's 3-D **secondary-flow scour**
+(`A≈2.89`) — are **deliberately excluded**: they are separate physics, orthogonal to the
+linear channel-Rossby instability (see the four-effects slide in the derivation). No
+nonlinear terms, no empirical closures, no hyperviscosity.
 
-Run: `python meander_driver.py --mode ivp --nonlinear`.
+## The two movies (both make the banks the true channel boundary)
+
+`03_multipanel.py` renders each run as a 6-panel movie (ψ_total · ψ' · momentum flux
+u′v′ · y-z cross-section · dispersion · stats), in **two views that differ only in scaling**:
+
+- **`multipanel_…`** (default) — **normalized**: each frame is re-scaled to a constant
+  bank amplitude (magnifying-glass **mode shape**; the true growth is the `gain` counter).
+- **`multipanel_eulerian_…`** (`--eulerian`) — **fully-Eulerian**: **one fixed scale** for
+  the whole movie, so the meander visibly grows `e^{σt}` out of a near-straight channel.
+
+In **both**, the interior field is drawn with `warp_fill` on the mesh whose top/bottom edges
+**are** the moving bank lines `y=±1+η(x)` — so **the two banks are the exact boundary of the
+flow** (no gap, no water outside). Every planform panel carries a **colorbar**, and the
+title states the bed's functional form — **H(y)** (cross-channel thalweg), **H(x)**
+(along-channel bars), or **H(x,y)** (both) — plus which view it is.
 
 ## Honest caveats
 
@@ -100,9 +113,8 @@ Run: `python meander_driver.py --mode ivp --nonlinear`.
 | `meander_driver.py` | core solver: CONFIG, `bed_depth`, profiles, variable-H GEP, d3 EVP+IVP, HDF5, self-test |
 | `postprocessing/pp_lib.py` | HDF5→`res` adapter + `dispersion`/`group_velocity`; imports channel_lib renderers |
 | `postprocessing/01_dispersion.py` | `fig01` σ/c*/c_g vs bed · `fig02` group-flip k_g vs thalweg depth |
-| `postprocessing/02_planform_movies.py` | per-run planform movies from `outputs/*.h5` |
-| `postprocessing/03_multipanel.py` | 5-panel movie: ψ_total · ψ' · momentum flux u′v′ · **y-z cross-section** (Ikeda Fig-2b view; depth-averaged bed+jet+banks) · dispersion (σ, c\*, c_g). Default = normalized + warp (magnifying-glass mode-shape view). **`--eulerian`** = fully-Eulerian: fixed rectangular domain, no warp, ONE fixed scale (the meander grows out of a near-straight channel = true e^{σt}), fixed-x cross-section |
-| `derivations/variable_h_pv.tex/.pdf` | the PV / topographic-β derivation (9 slides) |
+| `postprocessing/03_multipanel.py` | the **two movies** (above): ψ_total · ψ' · momentum flux u′v′ · **y-z cross-section** (Ikeda Fig-2b view) · dispersion · stats. Default = **normalized**; **`--eulerian`** = fully-Eulerian (fixed scale). Both `warp_fill` the interior so the banks are the exact field boundary; every panel has a colorbar; the title states H(y)/H(x)/H(x,y) + the view |
+| `derivations/variable_h_pv.tex/.pdf` | the PV / topographic-β derivation (11 slides) |
 
 Provenance: reuses the verified d3 idioms, GEP, and renderers of `../dedalus_meander`
 (theory bridge to `../vorticity_meander/vorticity_lib.py`). Built 2026-07-19.

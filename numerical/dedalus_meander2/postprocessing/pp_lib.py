@@ -33,6 +33,18 @@ import meander_driver as MD          # noqa: E402  (channel_modes_H, evp, profil
 COLORS = CL.COLORS
 
 
+def _warp_cbar(fig, ax, vlim, label):
+    """Add a colorbar to a warp_fill panel.
+
+    warp_fill renders with a symmetric RdBu_r pcolormesh (vmin=-vlim, vmax=+vlim);
+    it draws directly and returns nothing, so we attach a matching ScalarMappable.
+    """
+    import matplotlib as mpl
+    sm = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(-vlim, vlim), cmap="RdBu_r")
+    sm.set_array([])
+    fig.colorbar(sm, ax=ax, fraction=0.046, pad=0.02, label=label)
+
+
 def load_run(path):
     """Read a driver HDF5 into a `res`-style dict usable by channel_lib renderers.
 
@@ -80,59 +92,64 @@ def dispersion(cfg, ks=None, N=201):
 
 
 def multipanel_eulerian_frames(res, plt):
-    """FULLY-EULERIAN multipanel: fixed rectangular domain [0,Lx]x[-1,1],
-    NO per-frame amplitude normalization (ONE fixed scale for the whole movie,
-    set by the final frame => the field brightens and the banks grow out of a
-    near-straight channel = the true exponential growth), NO warp_fill.  The y-z
-    cross-section is taken at a FIXED x (fully Eulerian, not crest-tracking).
+    """FULLY-EULERIAN multipanel: ONE fixed amplitude scale for the whole movie
+    (NO per-frame normalization) -> the meander visibly GROWS e^{sigma t} out of a
+    near-straight channel.  The interior psi' is drawn with warp_fill so the two
+    moving banks are the EXACT boundary of the flow field: the field is rendered
+    on the mesh Y=y+(1+y)/2*dtop+(1-y)/2*dbot whose edges ARE the bank lines, so
+    the water fills the wavy channel with NO gap and NO water outside the banks.
+    The y-z cross-section is at a FIXED x (Eulerian, not crest-tracking).
+
+    Distinction from multipanel_frames: SAME warp (banks bound the flow) but a
+    single FIXED scale instead of the per-frame magnifying glass -> shows the true
+    exponential growth rather than a constant-size mode shape.
     """
     a = res["attrs"]
     cfg = _cfg_from_attrs(a)
-    k = float(a["kstar"]); D = cfg["D"]
+    k = float(a["kstar"]); m = int(a["mode_index"]); D = cfg["D"]
     x, y, Lx = res["x"], res["y"], res["Lx"]
     x2b = x / 2.0
     Hbed = res["Hbed"]
     ub_y = MD.ubar(y, cfg)
     psis = res["psis"]; tops = res["top"]; bots = res["bot"]
-    # ONE fixed scale from the final frame (constant across frames -> shows growth)
-    Gc = 0.95 / max(np.max(np.abs(psis[-1])), 1e-30)          # psi' colour scale
     bser = 0.5 * (tops + bots)
-    Gb = 0.55 / max(np.max(np.abs(bser[-1])), 1e-30)          # bank displacement
+    pb = CL.psibar(y, D)                                       # base transport streamfn
+    # ONE fixed scale (final-frame bank -> ~0.5), applied to EVERY frame for BOTH
+    # the field AND the banks -> preserves the physical field:bank ratio (both grow
+    # as e^{sigma t}) while the whole pattern grows from ~straight to full meander.
+    G = 0.5 / max(np.max(np.abs(bser[-1])), 1e-30)
     dyPf = np.gradient(psis[-1], y, axis=1)
     dxPf = np.gradient(psis[-1], x, axis=0)
-    Guv = 0.95 / max(np.max(np.abs(-(dyPf * dxPf) / Hbed**2)), 1e-30)
-    a0 = np.max(np.abs(bser[0]))
+    # flux fixed scale: 90th pct of the FINAL frame (u'v' peaks in the thin near-bank
+    # shear strips; the pct clips those so the meander-scale interior stays legible)
+    Guv = 1.0 / max(np.percentile(np.abs(-(dyPf * dxPf) / Hbed**2), 90), 1e-30)
+    a1 = CL.demodulate(bser, m); a0 = np.abs(a1[0])
     ixf = psis.shape[1] // 2                                   # FIXED x-slice (mid-domain)
     Hy = Hbed[ixf] if Hbed.shape[0] > 1 else Hbed[0]
     ks, sig, cph, cg = dispersion(cfg, ks=np.linspace(0.05, 1.5, 30))   # once
 
-    def rect(ax, F, vlim, cmap="RdBu_r"):
-        ax.pcolormesh(x2b, y, F.T, cmap=cmap, vmin=-vlim, vmax=vlim,
-                      shading="gouraud", rasterized=True)
-        ax.axhline(1, color="0.6", lw=0.6, ls=":"); ax.axhline(-1, color="0.6", lw=0.6, ls=":")
-
     frames = []
     for i in range(len(psis)):
-        amp = np.max(np.abs(bser[i]))
-        dtop, dbot = Gb * tops[i], Gb * bots[i]
-        uv = -(np.gradient(psis[i], y, axis=1) * np.gradient(psis[i], x, axis=0)) / Hbed**2
+        pp = psis[i]
+        dtop, dbot = G * tops[i], G * bots[i]
+        uv = -(np.gradient(pp, y, axis=1) * np.gradient(pp, x, axis=0)) / Hbed**2
         fig, axs = plt.subplots(2, 3, figsize=(15.0, 6.0), dpi=100)
-        # psi' (the growing perturbation, TRUE scale) + banks as displaced lines
-        rect(axs[0, 1], Gc * psis[i], 1.0)
+        # --- planform: warp_fill => the banks ARE the exact field boundary ----- #
+        CL.warp_fill(axs[0, 0], x2b, y, pb[None, :] + G * pp, dtop, dbot, vlim=1.3)
+        axs[0, 0].set_title(r"$\psi_{\rm total}$ (fixed scale; grows)", fontsize=10)
+        _warp_cbar(fig, axs[0, 0], 1.3, r"$\psi_{\rm total}$")
+        CL.warp_fill(axs[0, 1], x2b, y, G * pp, dtop, dbot, vlim=0.55)
         axs[0, 1].set_title(r"$\psi'$ (fixed scale; grows)", fontsize=10)
-        # psi_total = base + growing perturbation
-        base = (-y + D * y**3 / 3.0)[None, :]
-        rect(axs[0, 0], base + Gc * psis[i], 1.5)
-        axs[0, 0].set_title(r"$\psi_{\rm total}=\bar\psi+\psi'$", fontsize=10)
-        rect(axs[0, 2], Guv * uv, 1.0, cmap="PuOr_r")
-        axs[0, 2].set_title(r"momentum flux $\overline{u'v'}$", fontsize=10)
+        _warp_cbar(fig, axs[0, 1], 0.55, r"$\psi'$ (scaled)")
+        CL.warp_fill(axs[0, 2], x2b, y, Guv * uv, dtop, dbot, vlim=1.0)
+        axs[0, 2].set_title(r"momentum flux $\overline{u'v'}$ ($\propto e^{2\sigma t}$)",
+                            fontsize=10)
+        _warp_cbar(fig, axs[0, 2], 1.0, r"$\overline{u'v'}$ (scaled)")
         for ax in axs[0]:
-            ax.plot(x2b, 1 + dtop, color=COLORS["psi1"], lw=1.8)      # true bank lines
-            ax.plot(x2b, -1 + dbot, color=COLORS["psi1"], lw=1.8)
-            ax.set_xlim(0, Lx / 2); ax.set_ylim(-1.75, 1.75)
-            ax.set_xlabel(r"downstream $x/2b$ (FIXED domain)", fontsize=8)
+            ax.set_xlim(0, Lx / 2); ax.set_ylim(-2.4, 2.4)
+            ax.set_xlabel(r"downstream $x/2b$ (fixed domain)", fontsize=8)
 
-        # y-z cross-section at a FIXED x (Eulerian): bed + jet + growing bank wiggle
+        # --- y-z cross-section at a FIXED x (Eulerian) ------------------------- #
         axc = axs[1, 0]
         u_tot = ub_y / Hy
         zg = np.linspace(-Hy.max() * 1.1, 0.25, 60)
@@ -141,13 +158,14 @@ def multipanel_eulerian_frames(res, plt):
         axc.plot(y, -Hy, color=COLORS["bank"], lw=2.5)
         axc.fill_between(y, -Hy, zg.min(), color=COLORS["bank"], alpha=0.25)
         axc.axhline(0, color="0.3", lw=1.5)
-        axc.plot([-1 + Gb * bots[i][ixf]] * 2, [-Hy[0], 0.15], color=COLORS["psi1"], lw=3)
-        axc.plot([1 + Gb * tops[i][ixf]] * 2, [-Hy[-1], 0.15], color=COLORS["psi1"], lw=3)
+        axc.plot([-1 + G * bots[i][ixf]] * 2, [-Hy[0], 0.15], color=COLORS["psi1"], lw=3)
+        axc.plot([1 + G * tops[i][ixf]] * 2, [-Hy[-1], 0.15], color=COLORS["psi1"], lw=3)
         fig.colorbar(pc, ax=axc, fraction=0.045, pad=0.02, label=r"$\bar u/H$")
         axc.set_xlim(-1.6, 1.6); axc.set_ylim(zg.min(), 0.4)
         axc.set_xlabel(r"cross-channel $y/b$"); axc.set_ylabel(r"depth $z$")
         axc.set_title(rf"$y$-$z$ cross-section at FIXED $x/2b={x2b[ixf]:.1f}$", fontsize=9)
 
+        # --- dispersion + stats ------------------------------------------------ #
         axd = axs[1, 1]
         axd.plot(ks, sig, color=COLORS["growth"], lw=1.8, label=r"$\sigma^*$")
         axd.plot(ks, cph, color=COLORS["upstream"], lw=1.8, label=r"$c^*$")
@@ -157,15 +175,50 @@ def multipanel_eulerian_frames(res, plt):
         axd.legend(fontsize=8, ncol=3, loc="upper right"); axd.set_ylim(-0.5, 0.6)
 
         axs[1, 2].axis("off")
-        stat = ("EULERIAN POV\n\n"
+        stat = ("EULERIAN (fixed scale)\n\n"
                 rf"$k^*={k:g}$   bed $H\in[{Hbed.min():.2f},{Hbed.max():.2f}]$" "\n"
-                rf"true bank ampl $={amp:.1e}$" "\n"
-                rf"growth $=\times{amp/max(a0,1e-30):.2g}$ (real)")
+                rf"$\sigma^*_{{\rm EVP}}={a['sigma_evp']:.3f}$" "\n"
+                rf"bank grows $\times{np.abs(a1[i])/max(a0,1e-30):.2g}$"
+                r" (real $e^{\sigma t}$)")
         axs[1, 2].text(0.03, 0.92, stat, va="top", ha="left", fontsize=11,
                        transform=axs[1, 2].transAxes)
-        fig.tight_layout()
+        fig.suptitle(condition_label(a)
+                     + r"    |    VIEW: fully-Eulerian (fixed scale $\cdot$ banks bound"
+                     + r" flow $\cdot$ true $e^{\sigma t}$ growth)",
+                     fontsize=11, y=0.995)
+        fig.tight_layout(rect=[0, 0, 1, 0.955])
         frames.append(CL.fig_to_rgb(fig)); plt.close(fig)
     return frames
+
+
+def condition_label(a):
+    """Human-readable run condition from HDF5 attrs (for movie labels/filenames).
+
+    Leads with the bed's FUNCTIONAL FORM so it is unambiguous which case this is:
+      cross_amp>0 only      -> H(y)   (cross-channel thalweg, x-homogeneous)
+      along_amp>0 only      -> H(x)   (along-channel bars, y-homogeneous)
+      both>0                -> H(x,y) (thalweg + bars)
+    Pure-linear variable-H PV model -- no nonlinear/secondary-flow knobs.
+    """
+    def fv(k):
+        try:
+            return float(a.get(k, 0.0))
+        except (TypeError, ValueError):
+            return 0.0
+    cross, along = fv("cross_amp") > 0, fv("along_amp") > 0
+    if cross and along:
+        form = r"bed $H(x,y)$"
+        detail = (rf"thalweg $a_H={fv('cross_amp'):.2f}$ + bars $a_x={fv('along_amp'):.2f}$")
+    elif along:
+        form = r"bed $H(x)$"
+        detail = rf"along-channel bars $a_x={fv('along_amp'):.2f}$"
+    elif cross:
+        form = r"bed $H(y)$"
+        detail = rf"cross-channel thalweg $a_H={fv('cross_amp'):.2f}$"
+    else:
+        form = r"bed $H=$const"
+        detail = "flat bed"
+    return form + ":  " + detail
 
 
 def _cfg_from_attrs(a):
@@ -219,12 +272,15 @@ def multipanel_frames(res, plt, max_frames=72):
         fig, axs = plt.subplots(2, 3, figsize=(15.0, 6.0), dpi=100)
         CL.warp_fill(axs[0, 0], x2b, y, pb[None, :] + scale * pp, dtop, dbot, vlim=1.3)
         axs[0, 0].set_title(r"$\psi_{\rm total}$ (streamlines)", fontsize=10)
+        _warp_cbar(fig, axs[0, 0], 1.3, r"$\psi_{\rm total}$")
         CL.warp_fill(axs[0, 1], x2b, y, scale * pp, dtop, dbot, vlim=0.55)
         axs[0, 1].set_title(r"$\psi'$ (perturbation)", fontsize=10)
+        _warp_cbar(fig, axs[0, 1], 0.55, r"$\psi'$ (norm.)")
         CL.warp_fill(axs[0, 2], x2b, y, uv, dtop, dbot, vlim=1.0)
         axs[0, 2].set_title(r"momentum flux $\overline{u'v'}$ "
                             r"($-\frac{1}{H^2}\partial_y\Psi'\partial_x\Psi'$)",
                             fontsize=10)
+        _warp_cbar(fig, axs[0, 2], 1.0, r"$\overline{u'v'}$ (norm.)")
         for ax in axs[0]:
             ax.axvline(xc, color=COLORS["upstream"], lw=1.5, alpha=0.8)
             ax.set_xlim(0, Lx / 2); ax.set_ylim(-2.6, 2.6)
@@ -269,6 +325,10 @@ def multipanel_frames(res, plt, max_frames=72):
                 rf"gain $e^{{\sigma t}}=\times{amp/gain0:.2g}$")
         axs[1, 2].text(0.05, 0.9, stat, va="top", ha="left", fontsize=12,
                        transform=axs[1, 2].transAxes)
-        fig.tight_layout()
+        fig.suptitle(condition_label(a)
+                     + r"    |    VIEW: normalized (per-frame norm $\cdot$ banks bound"
+                     + r" flow $\cdot$ mode shape, not true scale)",
+                     fontsize=11, y=0.995)
+        fig.tight_layout(rect=[0, 0, 1, 0.955])
         frames.append(CL.fig_to_rgb(fig)); plt.close(fig)
     return frames

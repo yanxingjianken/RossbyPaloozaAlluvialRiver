@@ -167,7 +167,10 @@ flow.  Four second-order things, routinely conflated:
 \end{itemize}
 \hl{cEros}{The gap is filled by the coordinate map (warp), not by any flow.}  Ikeda's
 $O(\nu^2)$ is curvature-flow at zero amplitude; secondary flow is 3-D bed-scour -- both are
-\emph{different} things, orthogonal to this planform gap.
+\emph{different} things, orthogonal to this planform gap.  \hl{cChannel}{Both movies}
+(\texttt{multipanel} and \texttt{multipanel\_eulerian}) therefore render the interior on the
+warped mesh, so \emph{the two banks are the exact boundary of the flow} -- they differ only in
+scaling: per-frame normalisation (mode shape) vs.\ one fixed scale (true $e^{\sigma t}$ growth).
 \end{frame}
 
 % --------------------------------------------------------------------------- %
@@ -219,14 +222,10 @@ agree to $\sim10^{-9}$ -- the $\Hb^2$-weighted PV reformulation is correct.
   the right -- modestly, because a \emph{symmetric} bump partly cancels in $\bt$.
   \item \hl{cGrowth}{Along-channel bedforms $H(x,y)$ done} (discharge-conserving base flow):
   at bed$\leftrightarrow$bank resonance the bars measurably force the bends.
-  \item \hl{cGrowth}{Nonlinear $J(\pp,\zp)$ done} (\texttt{--nonlinear}): small ampl reduces
-  to linear (self-test Stage~6); finite ampl generates the \hl{cMom}{3rd-harmonic
-  fattening/skewing $\propto\text{ampl}^2$} (Parker~1982).  Deep saturation needs
-  $\nabla^8$ hyperviscosity (as in \texttt{shutts\_1983}); the weakly-nonlinear window is
-  clean.
-  \item \emph{Next}: secondary flow $A\approx2.89$ = curvature-induced bed $\eta'=-A\mathscr
-  C'\tilde n$ (Ikeda's mechanism) coupling meander curvature $\mathscr C'\propto\partial_x^2\psi_b$
-  to the bed -- a curvature$\to$bed feedback grafted onto the channel-Rossby model.
+  \item \hl{cVeloc}{Model is strictly linear}: the $O(\text{ampl}^2)$ nonlinear $J(\pp,\zp)$
+  and Ikeda's 3-D secondary-flow scour ($A\approx2.89$) are \emph{deliberately dropped}
+  (see the four-effects slide) -- they are separate physics, orthogonal to the linear
+  channel-Rossby instability studied here.
   \item Core is one Dedalus driver (\texttt{meander\_driver.py}); all figures/movies in
   \texttt{postprocessing/}.  Flat bed always recovers \texttt{dedalus\_meander}.
 \end{itemize}
