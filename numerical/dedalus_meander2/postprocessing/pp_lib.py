@@ -79,6 +79,96 @@ def dispersion(cfg, ks=None, N=201):
     return ks, np.array(sig), np.array(cph), np.array(cg)
 
 
+def multipanel_eulerian_frames(res, plt):
+    """FULLY-EULERIAN multipanel: fixed rectangular domain [0,Lx]x[-1,1],
+    NO per-frame amplitude normalization (ONE fixed scale for the whole movie,
+    set by the final frame => the field brightens and the banks grow out of a
+    near-straight channel = the true exponential growth), NO warp_fill.  The y-z
+    cross-section is taken at a FIXED x (fully Eulerian, not crest-tracking).
+    """
+    a = res["attrs"]
+    cfg = _cfg_from_attrs(a)
+    k = float(a["kstar"]); D = cfg["D"]
+    x, y, Lx = res["x"], res["y"], res["Lx"]
+    x2b = x / 2.0
+    Hbed = res["Hbed"]
+    ub_y = MD.ubar(y, cfg)
+    psis = res["psis"]; tops = res["top"]; bots = res["bot"]
+    # ONE fixed scale from the final frame (constant across frames -> shows growth)
+    Gc = 0.95 / max(np.max(np.abs(psis[-1])), 1e-30)          # psi' colour scale
+    bser = 0.5 * (tops + bots)
+    Gb = 0.55 / max(np.max(np.abs(bser[-1])), 1e-30)          # bank displacement
+    dyPf = np.gradient(psis[-1], y, axis=1)
+    dxPf = np.gradient(psis[-1], x, axis=0)
+    Guv = 0.95 / max(np.max(np.abs(-(dyPf * dxPf) / Hbed**2)), 1e-30)
+    a0 = np.max(np.abs(bser[0]))
+    ixf = psis.shape[1] // 2                                   # FIXED x-slice (mid-domain)
+    Hy = Hbed[ixf] if Hbed.shape[0] > 1 else Hbed[0]
+
+    def rect(ax, F, vlim, cmap="RdBu_r"):
+        ax.pcolormesh(x2b, y, F.T, cmap=cmap, vmin=-vlim, vmax=vlim,
+                      shading="gouraud", rasterized=True)
+        ax.axhline(1, color="0.6", lw=0.6, ls=":"); ax.axhline(-1, color="0.6", lw=0.6, ls=":")
+
+    pb = MD.VL.u_profile  # not used; base streamfunction below
+    frames = []
+    for i in range(len(psis)):
+        amp = np.max(np.abs(bser[i]))
+        dtop, dbot = Gb * tops[i], Gb * bots[i]
+        uv = -(np.gradient(psis[i], y, axis=1) * np.gradient(psis[i], x, axis=0)) / Hbed**2
+        fig, axs = plt.subplots(2, 3, figsize=(15.0, 6.0), dpi=100)
+        # psi' (the growing perturbation, TRUE scale) + banks as displaced lines
+        rect(axs[0, 1], Gc * psis[i], 1.0)
+        axs[0, 1].set_title(r"$\psi'$ (fixed scale; grows)", fontsize=10)
+        # psi_total = base + growing perturbation
+        base = (-y + D * y**3 / 3.0)[None, :]
+        rect(axs[0, 0], base + Gc * psis[i], 1.5)
+        axs[0, 0].set_title(r"$\psi_{\rm total}=\bar\psi+\psi'$", fontsize=10)
+        rect(axs[0, 2], Guv * uv, 1.0, cmap="PuOr_r")
+        axs[0, 2].set_title(r"momentum flux $\overline{u'v'}$", fontsize=10)
+        for ax in axs[0]:
+            ax.plot(x2b, 1 + dtop, color=COLORS["psi1"], lw=1.8)      # true bank lines
+            ax.plot(x2b, -1 + dbot, color=COLORS["psi1"], lw=1.8)
+            ax.set_xlim(0, Lx / 2); ax.set_ylim(-1.75, 1.75)
+            ax.set_xlabel(r"downstream $x/2b$ (FIXED domain)", fontsize=8)
+
+        # y-z cross-section at a FIXED x (Eulerian): bed + jet + growing bank wiggle
+        axc = axs[1, 0]
+        u_tot = ub_y / Hy
+        zg = np.linspace(-Hy.max() * 1.1, 0.25, 60)
+        U2 = np.where(zg[:, None] > -Hy[None, :], u_tot[None, :], np.nan)
+        pc = axc.pcolormesh(y, zg, U2, cmap="viridis", shading="auto")
+        axc.plot(y, -Hy, color=COLORS["bank"], lw=2.5)
+        axc.fill_between(y, -Hy, zg.min(), color=COLORS["bank"], alpha=0.25)
+        axc.axhline(0, color="0.3", lw=1.5)
+        axc.plot([-1 + Gb * bots[i][ixf]] * 2, [-Hy[0], 0.15], color=COLORS["psi1"], lw=3)
+        axc.plot([1 + Gb * tops[i][ixf]] * 2, [-Hy[-1], 0.15], color=COLORS["psi1"], lw=3)
+        fig.colorbar(pc, ax=axc, fraction=0.045, pad=0.02, label=r"$\bar u/H$")
+        axc.set_xlim(-1.6, 1.6); axc.set_ylim(zg.min(), 0.4)
+        axc.set_xlabel(r"cross-channel $y/b$"); axc.set_ylabel(r"depth $z$")
+        axc.set_title(rf"$y$-$z$ cross-section at FIXED $x/2b={x2b[ixf]:.1f}$", fontsize=9)
+
+        axd = axs[1, 1]
+        ks, sig, cph, cg = dispersion(cfg, ks=np.linspace(0.05, 1.5, 30))
+        axd.plot(ks, sig, color=COLORS["growth"], lw=1.8, label=r"$\sigma^*$")
+        axd.plot(ks, cph, color=COLORS["upstream"], lw=1.8, label=r"$c^*$")
+        axd.plot(ks, cg, color=COLORS["momentum"], lw=1.8, label=r"$c_g$")
+        axd.axhline(0, color="k", lw=0.6); axd.axvline(k, color="0.5", lw=1, ls=":")
+        axd.set_xlabel(r"$k^*$"); axd.set_title("dispersion", fontsize=10)
+        axd.legend(fontsize=8, ncol=3, loc="upper right"); axd.set_ylim(-0.5, 0.6)
+
+        axs[1, 2].axis("off")
+        stat = ("FULLY EULERIAN\n(fixed domain, no warp,\nno per-frame norm)\n\n"
+                rf"$k^*={k:g}$   bed $H\in[{Hbed.min():.2f},{Hbed.max():.2f}]$" "\n"
+                rf"true bank ampl $={amp:.1e}$" "\n"
+                rf"growth $=\times{amp/max(a0,1e-30):.2g}$ (real)")
+        axs[1, 2].text(0.03, 0.92, stat, va="top", ha="left", fontsize=11,
+                       transform=axs[1, 2].transAxes)
+        fig.tight_layout()
+        frames.append(CL.fig_to_rgb(fig)); plt.close(fig)
+    return frames
+
+
 def _cfg_from_attrs(a):
     """Reconstruct a driver CONFIG dict from HDF5 attrs (for profiles/dispersion)."""
     cfg = dict(MD.CONFIG)
