@@ -9,6 +9,7 @@ logs/
 
 # Regenerable Dedalus run data (figures/ ARE tracked: slide-ready deliverables)
 numerical/dedalus_meander/outputs/
+numerical/dedalus_meander2/outputs/
 
 # LaTeX build artifacts (keep .tex and compiled .pdf; drop the rest)
 *.aux

@@ -1,0 +1,182 @@
+% Variable-depth H(x,y): from absolute vorticity to potential vorticity.
+% Rossby Palooza -- Alluvial Rivers & Jet streams.  Companion to dedalus_meander2/.
+% Compile:  lualatex variable_h_pv.tex   (run twice for the footline)
+\documentclass[aspectratio=169,10pt]{beamer}
+
+\usepackage{amsmath,amssymb}
+\usepackage{mathrsfs}
+\usepackage{booktabs}
+\usepackage{array}
+
+\definecolor{cChannel}{HTML}{08519C}
+\definecolor{cGrowth}{HTML}{238B45}
+\definecolor{cVeloc}{HTML}{E6820A}
+\definecolor{cCurv}{HTML}{6A51A3}
+\definecolor{cEros}{HTML}{D7301F}
+\definecolor{cBank}{HTML}{7F5539}
+\definecolor{cMom}{HTML}{E6550D}
+
+\usecolortheme{whale}
+\setbeamercolor{structure}{fg=cChannel}
+\setbeamercolor{frametitle}{fg=white,bg=cChannel}
+\setbeamercolor{title}{fg=white,bg=cChannel}
+\setbeamercolor{subtitle}{fg=cChannel}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[circle]
+\setbeamerfont{frametitle}{size=\large}
+\setbeamertemplate{footline}[frame number]
+
+\newcommand{\hl}[2]{\textcolor{#1}{\textbf{#2}}}
+\newcommand{\mhl}[2]{\textcolor{#1}{#2}}
+\newcommand{\pp}{\psi'}
+\newcommand{\Pp}{\Psi'}
+\newcommand{\ub}{\bar u}
+\newcommand{\zp}{\zeta'}
+\newcommand{\zb}{\bar\zeta}
+\newcommand{\Hb}{\bar H}
+\newcommand{\bt}{\beta_{\mathrm{top}}}
+\newcommand{\dt}{\partial_t}
+\newcommand{\dx}{\partial_x}
+\newcommand{\dy}{\partial_y}
+\newcommand{\Fr}{\mathrm{Fr}}
+
+\title{Variable Depth $H(x,y)$: Absolute Vorticity $\to$ Potential Vorticity}
+\subtitle{dropping the flat-bed assumption -- the topographic-shear $\beta$}
+\author{Rossby Palooza --- Alluvial Rivers \& Jet streams}
+\date{Derivation companion to \texttt{numerical/dedalus\_meander2/}}
+
+\begin{document}
+
+\begin{frame}[plain]\titlepage\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{The one assumption we drop}
+The constant-depth model (\texttt{dedalus\_meander}) assumed a \hl{cBank}{flat rigid
+bed}, $H=\mathrm{const}$.  Dropping it (Station~1 assumption (iv)) changes the
+\emph{conserved quantity}:
+\[
+\text{flat bed:}\quad \frac{D\zeta}{Dt}=\mathcal C \qquad\longrightarrow\qquad
+\text{variable }H:\quad \hl{cChannel}{$\dfrac{D}{Dt}\!\left(\dfrac{\zeta}{H}\right)=\dfrac1H\,\mathrm{curl}\,\mathcal F$}
+\]
+Absolute-vorticity conservation becomes \hl{cChannel}{potential-vorticity (PV)
+conservation}.  The Rossby restoring force gains a \hl{cCurv}{topographic-shear
+$\beta$}.  Everything else -- jet, erodible banks, low-Froude rigid lid -- is kept.
+\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{Station 1 revisited: the mass-transport streamfunction}
+Low-Froude rigid lid, but now $h\approx H(x,y)$ is \emph{not} constant.  Continuity
+\[
+\dt h + \nabla\!\cdot(h\mathbf U)=0 \;\xrightarrow{\ \Fr^2\ll1\ }\;
+\hl{cChannel}{$\nabla\!\cdot(H\mathbf U)\approx 0$}
+\]
+So it is the \hl{cVeloc}{mass flux} $H\mathbf U$ that is non-divergent, not $\mathbf U$.
+Introduce the \hl{cVeloc}{mass-transport streamfunction} $\Pp$:
+\[
+u=-\frac1H\,\dy\Pp,\qquad v=+\frac1H\,\dx\Pp,\qquad
+\zp=\dx v-\dy u=\hl{cChannel}{$\nabla\!\cdot\!\Big(\tfrac1H\nabla\Pp\Big)$}
+\]
+The relative vorticity is now a \hl{cEros}{variable-coefficient elliptic} operator on
+$\Pp$ (flat bed: $\zp=\nabla^2\Pp$).
+\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{The curl: the PV-tendency equation}
+Curl of the shallow-water momentum equation (the surface term $-g\nabla\xi$ is a
+gradient, killed exactly).  Using $\nabla\!\cdot\mathbf U=-\tfrac1H\mathbf U\!\cdot\!\nabla H$:
+\[
+\dt\zp+\mathbf U\!\cdot\!\nabla\zp-\frac{\zp}{H}\mathbf U\!\cdot\!\nabla H
+=\mathrm{curl}\,\mathcal F
+\quad\Longleftrightarrow\quad
+\hl{cChannel}{$\dfrac{D}{Dt}\!\Big(\dfrac{\zp}{H}\Big)=\dfrac1H\,\mathrm{curl}\,\mathcal F$}
+\]
+The extra \hl{cCurv}{vortex-stretching term} $-\tfrac{\zp}{H}\mathbf U\!\cdot\!\nabla H$
+is what the flat bed did not have.  It combines with base advection into a modified
+$\beta$ -- next slide.
+\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{Linearize (base bed $\Hb(y)$): the SAME skeleton}
+Base jet $\ub(y)$ over base depth $\Hb(y)$; $\zb=-\ub_y$.  The stretching term folds
+into the advection, and the linear equation is \hl{cChannel}{term-for-term the flat-bed
+model} with two replacements:
+\[
+\boxed{\;\dt\zp+\ub(y)\,\dx\zp+\hl{cCurv}{$\bt(y)$}\,\dx\Pp=\mathrm{curl}\,\mathcal F',\qquad
+\zp=\nabla\!\cdot\!\Big(\tfrac1{\Hb}\nabla\Pp\Big)\;}
+\]
+\[
+\hl{cCurv}{$\bt(y)=\dy\!\Big(\dfrac{\zb}{\Hb}\Big)=\dfrac{2D}{\Hb}+\dfrac{\ub_y\,\Hb_y}{\Hb^{2}}$}
+\qquad(\text{flat bed }\Hb=1:\ \bt\to 2D,\ \zp\to\nabla^2\Pp)
+\]
+$\beta\to\bt$ (topographic-shear) and $\nabla^2\to$ the $\Hb$-weighted elliptic operator.
+Flat bed \hl{cGrowth}{recovers \texttt{dedalus\_meander} exactly}.
+\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{An honest word on ``topographic $\beta$''}
+In a \hl{cChannel}{non-rotating} river ($f=0$) the base PV is $\zb/\Hb$ -- relative
+vorticity only.  Hence
+\[
+D=0\ \Rightarrow\ \zb=2Dy=0\ \Rightarrow\ \bt=0 \qquad
+\hl{cEros}{(a bed bump alone makes NO $\beta$)}.
+\]
+The bed \emph{modulates the shear-$\beta$}; it does not create a standalone
+topographic $\beta$ without planetary vorticity.  A formal knob $f_0$ (default $0$)
+restores true \hl{cCurv}{topographic Rossby waves}:
+\[
+\bt=\dy\!\Big(\dfrac{\zb+f_0}{\Hb}\Big)=\underbrace{\dy(\zb/\Hb)}_{\text{shear}}
+-\underbrace{f_0\,\Hb_y/\Hb^2}_{\text{topographic}}\qquad(f_0\neq0:\ \text{waves even at }D=0).
+\]
+\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{Implementation: well-banded, and why}
+A survey of the group's Dedalus code found \hl{cEros}{no variable-coefficient
+elliptic-LHS precedent}; the one $\text{NCC}\times\text{unknown}$ on the LHS
+destabilised the IMEX stepper, and the docs warn that rational $1/H$ NCCs make dense
+matrices.  Safe, precedented route (as in the QG/shallow-water scripts):
+\begin{itemize}
+  \item carry $\zp$ as an \hl{cChannel}{auxiliary field} (first-order reduction);
+  \item multiply the elliptic constraint through by $\Hb^{2}$ to clear the $1/H$:
+  \[
+  \hl{cGrowth}{$\Hb\,\nabla^2\Pp-\Hb_y\,\dy\Pp-\Hb^{2}\zp=0$}\qquad
+  (\Hb\text{ polynomial}\Rightarrow\text{all-polynomial, well-banded});
+  \]
+  \item multiply the PV tendency through by $\Hb^2$ (eigenvalue-preserving row scaling).
+\end{itemize}
+\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{Verification ladder (all green)}
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+check & what & result\\
+\midrule
+flat-bed reduction & variable-$H$ GEP vs \texttt{VL.channel\_modes} ($H{=}1$) & \hl{cGrowth}{$0.0$ (identical)}\\
+$d3$ EVP vs GEP & flat + bumped bed, both closures & \hl{cGrowth}{$4.4\times10^{-9}$}\\
+topographic Rossby & $f_0{=}0$: $\bt{=}0$; \ $f_0{\ne}0$: propagating wave & \hl{cGrowth}{as predicted}\\
+IVP vs EVP & measured $\sigma,c$, flat + bumped bed & \hl{cGrowth}{$0.1\%$}\\
+\bottomrule
+\end{tabular}
+\end{center}
+\vskip4pt
+Two independent discretisations (Dedalus Chebyshev spectral \& an FD+Richardson GEP)
+agree to $\sim10^{-9}$ -- the $\Hb^2$-weighted PV reformulation is correct.
+\end{frame}
+
+% --------------------------------------------------------------------------- %
+\begin{frame}{Result \& outlook}
+\begin{itemize}
+  \item A deeper \hl{cVeloc}{thalweg} $H(y)=1+a_H(1-y^2)$ shifts the growth band and the
+  \hl{cMom}{group-velocity flip} $k_g$ (the upstream/downstream momentum boundary) to
+  the right -- modestly, because a \emph{symmetric} bump partly cancels in $\bt$.
+  \item Bigger effects are expected from an \hl{cEros}{asymmetric} bed (point-bar) and
+  from \hl{cEros}{along-channel} bedforms $H(x,y)$ -- the latter couples Fourier modes
+  (IVP-only) and needs a base-flow-over-wavy-bed treatment (deferred, honestly flagged).
+  \item Core is one Dedalus driver (\texttt{meander\_driver.py}); all figures/movies in
+  \texttt{postprocessing/}.  Flat bed always recovers \texttt{dedalus\_meander}.
+\end{itemize}
+\end{frame}
+
+\end{document}
