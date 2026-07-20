@@ -1,0 +1,3 @@
+# regenerable run artifacts (just re-run rigid_lid_meander.py)
+rigid_lid_meander_snapshots.npz
+__pycache__/
