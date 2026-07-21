@@ -66,11 +66,14 @@ def sweep_dispersion(pattern="run_*.h5"):
 def centerline(s, cbar_of_s, zc=None):
     """Cartesian centerline (xc,yc) and unit normal (nx,ny) from curvature.
 
-    theta(s)=INT cbar ds ;  (xc,yc)=INT (cos,sin)theta ds ;  normal=(-sin,cos)theta.
-    If zc (perturbation lateral offset) is given, shift the centerline by zc*normal.
+    Sign convention MUST match the solver's metric sigma = 1 + n*C (derivations
+    sec.1): with the left normal (-sin,cos)theta that requires
+        theta(s) = -INT cbar ds
+    (using +INT would render the mirror image, i.e. the metric of 1 - n*C).
+    (xc,yc)=INT (cos,sin)theta ds.  If zc is given, shift the centerline by zc*normal.
     """
     ds = s[1] - s[0]
-    theta = np.concatenate([[0.0], np.cumsum(0.5 * (cbar_of_s[1:] + cbar_of_s[:-1]) * ds)])
+    theta = -np.concatenate([[0.0], np.cumsum(0.5 * (cbar_of_s[1:] + cbar_of_s[:-1]) * ds)])
     xc = np.concatenate([[0.0], np.cumsum(0.5 * (np.cos(theta[1:]) + np.cos(theta[:-1])) * ds)])
     yc = np.concatenate([[0.0], np.cumsum(0.5 * (np.sin(theta[1:]) + np.sin(theta[:-1])) * ds)])
     nx, ny = -np.sin(theta), np.cos(theta)

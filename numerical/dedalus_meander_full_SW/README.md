@@ -44,13 +44,23 @@ The bank drag `C_f` acts on **both** momentum components (`r_s=2C_fŪ_s/h̄`, `r
 ## Run (micromamba `dedalus`, v3.0.5)
 
 ```bash
-micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py --mode profiles  # base-state smoke test
-micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py --mode ivp --kstar 0.6
-micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py --mode sweep --Froude 0.6 --Cbar-amp 0.15
+# THE run: everything is configured in the CONFIG dict at the top of the driver.
+# Edit CONFIG, then:
+micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py
+
+# everything else lives outside the driver:
+python tests/test_base_profiles.py        # base-state sanity (jet, channel-beta, metric, superelevation)
+python sweep_dispersion.py                # the (k x Froude) experiment -> many outputs/run_*.h5
 cd postprocessing
-  python 01_dispersion.py                          # sigma(k), c(k) figure (reads outputs/, groups by Froude)
-  python 02_eulerian_momflux.py <run_tag>          # the single fully-Eulerian momentum-flux movie
+  python 01_dispersion.py                 # sigma(k), c(k) figure, grouped by Froude
+  python 02_eulerian_momflux.py [tag ...] # absolute-Eulerian momentum-flux movie(s)
 ```
+
+**Layout.** `sw_sn_driver.py` has **one** run and no CLI options — all knobs are the
+CONFIG at its head. `tests/` holds the sanity checks, `sweep_dispersion.py` the
+(k, Froude) experiment, `postprocessing/` all figures/movies, `derivations/` the
+full derivation of **every** equation in the driver
+([`sw_sn_meander.pdf`](derivations/), 7 pp), `outputs/` the raw HDF5 (gitignored).
 
 ## The two outputs
 

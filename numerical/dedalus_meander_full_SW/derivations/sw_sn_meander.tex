@@ -1,0 +1,422 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black}
+
+\newcommand{\us}{u_s}
+\newcommand{\un}{u_n}
+\newcommand{\Us}{\bar U_s}
+\newcommand{\ds}{\partial_s}
+\newcommand{\dn}{\partial_n}
+\newcommand{\dt}{\partial_t}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\title{\bf Derivation of every equation in \code{sw\_sn\_driver.py}\\
+\large Full shallow water on a finite-amplitude meander, channel-fitted $(s,n)$}
+\author{\code{numerical/dedalus\_meander\_full\_SW}}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-8mm}
+
+\noindent This note derives, in order, every formula that appears in
+\code{sw\_sn\_driver.py}. Each section names the code symbol it produces.
+
+\tableofcontents
+
+% ===================================================================
+\section{Why $(s,n)$, and the metric $\sigma=1+nC$}
+\label{sec:metric}
+
+The channel meanders with \emph{finite} amplitude, so its banks are not straight
+lines and a Chebyshev grid cannot be laid on them directly. We therefore use
+\textbf{channel-fitted} coordinates: $s$ = arc length along the centreline,
+$n$ = signed distance across it. In $(s,n)$ the channel is a straight strip
+$n\in[-b,b]$ whatever the planform does.
+
+Let the centreline be $\bm r_c(s)$ with unit tangent $\hat{\bm t}(s)$ and unit
+normal $\hat{\bm n}(s)$, and let $C(s)$ be its curvature. A point of the domain is
+\begin{equation}
+  \bm r(s,n)=\bm r_c(s)+n\,\hat{\bm n}(s).
+\end{equation}
+With the Frenet relation $\mathrm d\hat{\bm n}/\mathrm ds=+C\,\hat{\bm t}$
+(this \emph{defines} our sign convention: $n$ increases \emph{away} from the centre
+of curvature; equivalently the direction angle is $\theta(s)=-\int^s C\,\mathrm ds'$),
+\begin{equation}
+  \frac{\partial\bm r}{\partial s}=\hat{\bm t}+n\frac{\mathrm d\hat{\bm n}}{\mathrm ds}
+  =(1+nC)\,\hat{\bm t},
+  \qquad
+  \frac{\partial\bm r}{\partial n}=\hat{\bm n},
+\end{equation}
+so the coordinates are orthogonal with scale factors
+\begin{equation}
+  \boxed{\;h_s=\sigma\equiv 1+nC(s),\qquad h_n=1.\;}
+  \tag{$\to$ \code{sigma\_metric}, \code{sig}}
+\end{equation}
+$\sigma$ is the local stretching of an along-channel line at offset $n$: the outer
+bank ($n$ with the sign of $C$) is longer, the inner bank shorter.
+
+\paragraph{Validity.} $\sigma>0$ is required or the mapping folds. Since
+$|n|\le b$, this is $|C|b<1$: the bend radius must exceed the half-width. The test
+\code{tests/test\_base\_profiles.py} asserts $\min\sigma>0$.
+
+\paragraph{Sign convention (important).} Mirroring the channel ($C\to-C$) maps the
+problem to itself with $n\to-n$, so the linear growth rate $\sigma(k)$ and phase
+speed $c(k)$ are \emph{unchanged}; only the labelling of ``outer'' vs ``inner''
+bank flips. The convention above is the one used by the solver
+($\sigma=1+nC$); the lab-frame renderer must integrate $\theta=-\int C\,\mathrm ds$
+to match it.
+
+% ===================================================================
+\section{Shallow-water equations in $(s,n)$}
+
+\subsection{The starting (Cartesian) system}
+Non-rotating depth-averaged shallow water over a bed of still-water depth $H$,
+free surface $\eta$, total depth $h=\eta+H$:
+\begin{equation}
+  \dt\bm u+(\bm u\cdot\nabla)\bm u=-g\nabla\eta+\bm F,
+  \qquad
+  \dt\eta+\nabla\cdot(h\bm u)=0 .
+  \label{eq:sw-cart}
+\end{equation}
+The pressure is hydrostatic, $p=\rho g(\eta-z)$, so the horizontal pressure
+gradient is exactly $-g\nabla\eta$; this is the $L\gg H$ (long-wave) limit.
+Keeping $\dt\eta$ is what admits \textbf{gravity waves}; the rigid-lid packages in
+\code{../} drop it and are left with the vortical branch only.
+
+\subsection{Curvilinear operators}
+For orthogonal coordinates with scale factors $(h_s,h_n)=(\sigma,1)$:
+\begin{align}
+  \nabla\phi&=\frac{1}{\sigma}\ds\phi\,\hat{\bm t}+\dn\phi\,\hat{\bm n},\\
+  \nabla\cdot\bm F&=\frac{1}{\sigma}\Big[\ds F_s+\dn(\sigma F_n)\Big],
+  \label{eq:div}\\
+  \zeta=(\nabla\times\bm u)\cdot\hat{\bm z}&=\frac{1}{\sigma}\Big[\ds \un-\dn(\sigma \us)\Big].
+  \label{eq:vort}
+\end{align}
+The material acceleration acquires \emph{metric} (centrifugal/Coriolis-like) terms
+from the rotation of the basis vectors. With
+$\mathrm D/\mathrm Dt=\dt+(\us/\sigma)\ds+\un\dn$ and
+$\partial h_s/\partial n=C$, $\partial h_n/\partial s=0$, the standard result is
+\begin{equation}
+  a_s=\frac{\mathrm D\us}{\mathrm Dt}+\frac{C\,\us\un}{\sigma},
+  \qquad
+  a_n=\frac{\mathrm D\un}{\mathrm Dt}-\frac{C\,\us^{2}}{\sigma}.
+  \label{eq:accel}
+\end{equation}
+
+\subsection{The system solved}
+Substituting \eqref{eq:div}--\eqref{eq:accel} into \eqref{eq:sw-cart}:
+\begin{align}
+  &\dt\eta+\frac{1}{\sigma}\Big[\ds(h\us)+\dn(\sigma h\un)\Big]=0,
+  \label{eq:cont}\\
+  &\dt \us+\frac{\us}{\sigma}\ds \us+\un\dn \us
+   +\underbrace{\frac{C\us\un}{\sigma}}_{\text{bend coupling}}
+   =-\frac{g}{\sigma}\ds\eta-r_s\us+\nu\nabla^2\us,
+  \label{eq:smom}\\
+  &\dt \un+\frac{\us}{\sigma}\ds \un+\un\dn \un
+   \underbrace{-\frac{C\us^{2}}{\sigma}}_{\text{\bf centrifugal}}
+   =-g\,\dn\eta-r_n\un+\nu\nabla^2\un.
+  \label{eq:nmom}
+\end{align}
+The term $-C\us^2/\sigma$ is the whole reason for going to $(s,n)$: it is the
+centrifugal acceleration of water rounding a bend, and it is what tilts the free
+surface up against the outer bank (\S\ref{sec:base}). No straight-channel model
+contains it.
+
+% ===================================================================
+\section{Non-dimensionalisation: where the Froude number enters}
+\label{sec:nondim}
+
+Scale lengths by the half-width $b$, speeds by the centreline speed
+$U_c=U_0+\Delta$, time by $b/U_c$, and depths/$\eta$ by the mean depth $H_0$.
+The only place $g$ survives is the pressure gradient, where it appears as
+\begin{equation}
+  \frac{gH_0}{U_c^{2}}=\frac{1}{F^{2}},\qquad
+  \boxed{\;F\equiv\frac{U_c}{\sqrt{gH_0}},\qquad g_{\rm eff}=\frac1{F^{2}}\;}
+  \tag{$\to$ \code{g\_eff}}
+\end{equation}
+so the non-dimensional gravity-wave speed is $\sqrt{g_{\rm eff}H_0}=1/F$.
+
+\paragraph{Why $F$ must be specified, and why one value proves nothing.}
+$F$ is an \emph{input} (a property of the river), exactly like a Reynolds number:
+without it the system \eqref{eq:cont}--\eqref{eq:nmom} is not defined. At any $F$
+\emph{both} families exist --- gravity waves at speed $1/F$ and the vortical
+branch at $O(U)$. Which one the bank couples to is decided by \emph{measurement}:
+compare $c_{\rm meander}$ with $1/F$, and above all \emph{vary} $F$. If the meander
+rode the gravity branch, tripling $1/F$ would move $\sigma,c$. It does not
+(\code{sweep\_dispersion.py} $\to$ \code{fig01}), which is the evidence that the
+meander is the vortical/Rossby wave.
+
+% ===================================================================
+\section{The base state}
+\label{sec:base}
+
+\subsection{Parabolic jet and the constant channel-$\beta$}
+\begin{equation}
+  \boxed{\;\Us(n)=U_0+\Delta\Big(1-\frac{n^{2}}{b^{2}}\Big)\;}
+  \tag{$\to$ \code{ubar\_s}}
+\end{equation}
+so $\Us(0)=U_0+\Delta$ (centre) and $\Us(\pm b)=U_0$ (bank edge), and
+\begin{equation}
+  \dn\Us=-\frac{2\Delta n}{b^{2}}\ \ (\to\code{ubar\_s\_n}),\qquad
+  \dn^{2}\Us=-\frac{2\Delta}{b^{2}}=\text{const}\ \ (\to\code{ubar\_s\_nn}).
+\end{equation}
+This constant is the load-bearing property. From \eqref{eq:vort} with $\un=0$ and
+(for the moment) $C=0$, the base vorticity is $\bar\zeta=-\dn\Us$, hence
+\begin{equation}
+  \boxed{\;\frac{\partial\bar\zeta}{\partial n}=-\dn^{2}\Us=\frac{2\Delta}{b^{2}}
+  =\text{constant}\;}
+\end{equation}
+--- a uniform cross-channel gradient of background vorticity. This is the exact
+analogue of the planetary $\beta$: it is the restoring mechanism that makes a
+\emph{vortical (Rossby-type) wave} possible in a river. A parabolic jet is thus not
+cosmetic; it is what gives the channel a constant $\beta$. (For $C\neq0$ the same
+calculation gives $\bar\zeta=-\dn\Us-C\Us/\sigma$, a curvature correction.)
+
+\subsection{Base curvature = the finite background meander}
+\begin{equation}
+  \boxed{\;\bar C(s)=\bar C_{\rm amp}\cos(k_m s),\qquad
+  \bar C_{\rm amp}=A_{\rm bank}k_m^{2}\ \text{(default)}\;}
+  \tag{$\to$ \code{cbar}}
+\end{equation}
+For a centreline of lateral amplitude $A_{\rm bank}$ and wavenumber $k_m$, the
+small-slope curvature is $-\partial_s^2(A_{\rm bank}\cos k_m s)=A_{\rm bank}k_m^{2}\cos k_m s$;
+\code{Cbar\_amp} overrides this to set a genuinely tight bend directly.
+\textbf{$A_{\rm bank}$ is the fixed background channel shape --- it is \emph{not} the
+perturbation seed $A_0$ of \S\ref{sec:seed}, and it does not evolve.}
+
+\subsection{Superelevation}
+For a steady base with $\bar U_n=0$ and $\ds(\cdot)=0$, the $n$-momentum
+\eqref{eq:nmom} reduces to a balance between the centrifugal term and the pressure
+gradient:
+\begin{equation}
+  \boxed{\;g\,\dn\bar\eta=\frac{\bar C\,\Us^{2}}{\bar\sigma}\;}
+  \tag{$\to$ \code{etabar}}
+  \label{eq:super}
+\end{equation}
+integrated as $\bar\eta(s,n)=\dfrac{\bar C(s)}{g}\displaystyle\int_0^n
+\frac{\Us^{2}(n')}{1+n'\bar C(s)}\,\mathrm dn'$ (zero on the centreline). The water
+surface tilts \emph{up towards the outer bank} --- the superelevation. Note
+$\bar C\to0\Rightarrow\bar\eta\to0$ (asserted in the test).
+
+\subsection{Discharge conservation}
+The base continuity \eqref{eq:cont} with $\bar U_n=0$ requires
+$\ds(\bar h\Us)=0$: the transport is the same through every cross-section. With a
+cross-channel-only bed this is automatic ($\Us=\Us(n)$).
+
+\paragraph{What sustains the base.} A parallel jet with bottom drag is not a
+steady solution unless something drives it (the downhill slope). As in every
+frozen-jet stability analysis we \emph{prescribe} $\Us$ and absorb the residual into
+an implicit steady forcing; it cancels from the perturbation equations below.
+
+% ===================================================================
+\section{Linearisation}
+
+Write $\us=\Us+\us'$, $\un=\un'$, $\eta=\bar\eta+\eta'$, $h=\bar h+\eta'$,
+$C=\bar C+C'$, and drop products of primes.
+
+\subsection{Continuity}
+$\ds(h\us)=\ds(\bar h\Us)+\bar h\ds\us'+\Us\ds\eta'$, where the first term vanishes
+(discharge), and $\dn(\sigma h\un)\to\dn(\bar\sigma\bar h\,\un')$. Hence
+\begin{equation}
+  \bar\sigma\,\dt\eta'+\bar h\,\ds\us'+\Us\,\ds\eta'+\dn\!\big(\bar\sigma\bar h\,\un'\big)=0,
+  \tag{$\to$ eq.\ 1 in \code{build\_ivp\_SW}}
+\end{equation}
+already multiplied by $\bar\sigma$ (\S\ref{sec:sigma}).
+
+\subsection{$s$-momentum}
+$\frac{\us}{\sigma}\ds\us\to\frac{\Us}{\bar\sigma}\ds\us'$;
+$\un\dn\us\to\un'\dn\Us$;
+$\frac{C\us\un}{\sigma}\to\frac{\bar C\Us\un'}{\bar\sigma}$. Multiplying by
+$\bar\sigma$ collects the two $\un'$ terms into one coefficient:
+\begin{equation}
+  \bar\sigma\dt\us'+\Us\ds\us'
+  +\underbrace{\big(\bar\sigma\,\dn\Us+\bar C\,\Us\big)}_{\to\ \code{coefUn}}\un'
+  +g\,\ds\eta'+\bar\sigma r_s\us'-\bar\sigma\nu\nabla^{2}\us'=0 .
+  \tag{$\to$ eq.\ 2}
+\end{equation}
+The $\un'$ coefficient is the cross-channel advection of background momentum ---
+proportional to the base vorticity --- and is the term that carries the
+Rossby-type restoring.
+
+\subsection{$n$-momentum and the curvature feedback}
+\label{sec:feedback}
+Expanding $-C\us^{2}/\sigma$ with $C=\bar C+C'$, $\sigma=\bar\sigma+nC'$:
+\begin{equation}
+  -\frac{C\us^{2}}{\sigma}\;\simeq\;
+  \underbrace{-\frac{\bar C\Us^{2}}{\bar\sigma}}_{\text{base}}
+  \;\underbrace{-\frac{2\bar C\Us\us'}{\bar\sigma}}_{\to\ \code{twoCbUb}}
+  \;\underbrace{-\frac{C'\Us^{2}}{\bar\sigma}}_{\text{\bf new bend}}
+  \;+\;\frac{nC'\,\bar C\Us^{2}}{\bar\sigma^{2}} .
+\end{equation}
+The perturbed pressure term contributes $-\bar\sigma g\dn\eta'-nC'g\dn\bar\eta$, and
+using the base balance \eqref{eq:super}, $g\dn\bar\eta=\bar C\Us^2/\bar\sigma$, the
+last piece is $-nC'\bar C\Us^{2}/\bar\sigma$. Adding it to the $+nC'\bar C\Us^2/\bar\sigma^2$
+above and using $\bar\sigma-n\bar C=1$ leaves the remarkably clean forcing
+\begin{equation}
+  \boxed{\;\text{$n$-momentum forcing}=\frac{C'\,\Us^{2}}{\bar\sigma}\;\simeq\;C'\Us^{2}.\;}
+\end{equation}
+So the final equation, with the forcing moved to the left and
+$C'=-\partial_s^{2}\zeta_c$ (\S\ref{sec:erosion}):
+\begin{equation}
+  \bar\sigma\dt\un'+\Us\ds\un'-2\bar C\Us\us'+\bar\sigma g\dn\eta'
+  +\bar\sigma r_n\un'-\bar\sigma\nu\nabla^{2}\un'
+  +\underbrace{\Us^{2}\,\partial_s^{2}\zeta_c}_{\text{bend $\to$ flow}}=0 .
+  \tag{$\to$ eq.\ 3}
+\end{equation}
+\emph{This is the coupling that closes the meander instability}: a bend creates a
+centrifugal forcing, which drives the flow, which erodes the bank, which deepens
+the bend.
+
+% ===================================================================
+\section{Why every equation is multiplied by $\sigma$}
+\label{sec:sigma}
+
+The raw equations carry $1/\sigma=1/(1+nC)$, a \emph{rational} function of $n$.
+Dedalus builds such a coefficient as a dense operator (its documentation warns
+about exactly this), destroying the banded structure. Multiplying each equation
+through by $\sigma$ removes every $1/\sigma$ and leaves coefficients that are
+polynomial in $n$ (products of $\sigma$, $\bar h$, $\Us$), so the matrices stay
+banded. Multiplying an equation by a nonzero function is an exact,
+solution-preserving row operation.
+The one residual $1/\bar\sigma$ (in the $C'$ forcing) is dropped at
+$O(n\bar C\,C')$, i.e.\ second order in the perturbation amplitude \emph{and} the
+base curvature.
+
+% ===================================================================
+\section{Bottom friction: the factor of two}
+
+Quadratic (Ch\'ezy) drag is $\bm F=-\dfrac{C_f}{h}|\bm u|\bm u$. With
+$\bm u=(\Us+\us',\,\un')$ and $|\bm u|\simeq\Us+\us'$ (the $\un'$ contribution is
+second order):
+\begin{align}
+  |\bm u|\us&\simeq\Us^{2}+2\Us\us'
+  &&\Rightarrow\quad r_s=\frac{2C_f\Us}{\bar h}\quad(\to\code{rs\_a}),\\
+  |\bm u|\un&\simeq\Us\,\un'
+  &&\Rightarrow\quad r_n=\frac{C_f\Us}{\bar h}\quad(\to\code{rn\_a}).
+\end{align}
+The drag is therefore \textbf{anisotropic}: streamwise perturbations are damped
+twice as fast as cross-stream ones, because they perturb $|\bm u|$ as well as the
+direction. (The same factor $2$ appears in the ``momentum'' closure of the
+rigid-lid packages.) The base part $C_f\Us^2/\bar h$ belongs to the implicit
+driving balance and cancels.
+
+% ===================================================================
+\section{Boundary conditions, and why there are four tau terms}
+
+The banks sit at fixed $n=\pm b$ in channel coordinates. Water cannot cross a
+solid bank, so
+\begin{equation}
+  \boxed{\;\un'(\pm b)=0\;}\qquad\text{(no penetration)} .
+\end{equation}
+This assumes \emph{nothing} about the interior divergence: $\nabla\cdot\bm u\neq0$
+everywhere inside (that is what the free surface is for). In particular the bank is
+\emph{not} treated as a material streamline --- that would be a rigid-lid
+(non-divergent) assumption and is inconsistent with \eqref{eq:cont}.
+
+Lateral eddy viscosity $\nu\nabla^{2}$ makes each momentum equation second order in
+$n$, which (i) is physically reasonable for a river, (ii) makes the parabolic jet an
+actual steady solution, and (iii) gives a standard tau closure. A second-order
+operator needs one boundary condition per wall per component, so with free slip
+\begin{equation}
+  \dn\us'(\pm b)=0\qquad\text{(free slip)} ,
+\end{equation}
+the tau budget is $2$ per viscous velocity component:
+\[
+  \underbrace{2}_{\us'}+\underbrace{2}_{\un'}+\underbrace{0}_{\eta'}=4
+  \qquad(\to\ \code{t\_us1,t\_us2,t\_un1,t\_un2}),
+\]
+$\eta'$ needing none because its equation contains no second $n$-derivative.
+Counting unknowns and equations:
+$\{\us',\un',\eta',\zeta_c\}+4\ \text{tau}=8$ and
+$3\ \text{PDE}+2\ \text{no-penetration}+2\ \text{free-slip}+1\ \text{erosion}=8$.
+The tau terms are lifted onto the last two Chebyshev modes,
+\code{lift(t,-1)+lift(t,-2)} on \code{ybasis.derivative\_basis(2)}.
+
+% ===================================================================
+\section{Erodible bank: the meander equation}
+\label{sec:erosion}
+
+The bank is a sediment boundary, not a material line: it recedes because the flow
+erodes it. Ikeda's closure makes the migration rate proportional to the
+\emph{near-bank excess longitudinal velocity}. For a \textbf{bend} the outer bank is
+fast and the inner bank slow, so it is the \textbf{antisymmetric} part that moves the
+centreline:
+\begin{equation}
+  \boxed{\;\dt\zeta_c=E\cdot\tfrac12\big[\us'(+b)-\us'(-b)\big],\qquad E=\varepsilon\,U_0\;}
+  \tag{$\to$ eq.\ 8, \code{bank\_E}}
+\end{equation}
+where $\zeta_c(s,t)$ is the lateral offset of the centreline (constant width).
+
+\paragraph{Why antisymmetric.} Using two independent banks with
+$\dt\xi_\pm=E\us'(\pm b)$ instead makes the centreline
+$\tfrac12(\xi_++\xi_-)$ respond to the \emph{symmetric} part of the near-bank
+velocity. That is the channel-\emph{widening} mode, not bending: in practice it
+gives $\sigma<0$ (no meander instability). Parity matters.
+
+\paragraph{Closing the loop.} The migrating centreline changes the curvature,
+\begin{equation}
+  C'(s,t)=-\partial_s^{2}\zeta_c ,
+\end{equation}
+which re-enters the $n$-momentum as the forcing derived in \S\ref{sec:feedback}.
+The cycle
+\[
+  \zeta_c\ \longrightarrow\ C'\ \longrightarrow\ \text{flow}\ \longrightarrow\
+  \us'(\pm b)\ \longrightarrow\ \dt\zeta_c
+\]
+is the meander instability. Its growth rate is what the IVP measures.
+
+% ===================================================================
+\section{Seeding, and why the seed must be a domain mode}
+\label{sec:seed}
+
+The base state is an exact steady solution: started there, nothing ever happens.
+Stability analysis therefore \emph{requires} a perturbation, and its growth rate is
+the answer. We seed a pure bend with zero initial flow:
+\begin{equation}
+  \zeta_c(s,0)=A_0\cos(k_{\rm eff}s),\qquad \us'=\un'=\eta'=0 .
+\end{equation}
+\paragraph{Mode snapping.} $\cos(ks)$ is periodic on $[0,L_s]$ only if $kL_s/2\pi$
+is an integer. Otherwise the seed has a jump at the domain edge, whose spectral
+content spreads over many modes and grows as a \emph{localized packet} instead of a
+clean single-wavelength meander. We therefore snap to the nearest exact mode:
+\begin{equation}
+  m=\mathrm{round}\!\Big(\frac{kL_s}{2\pi}\Big),\qquad
+  k_{\rm eff}=\frac{2\pi m}{L_s} .
+\end{equation}
+\paragraph{$A_0$ is a free constant.} The system is linear, so if
+$(\us',\un',\eta',\zeta_c)$ solves it then so does $\lambda\times$ it. Only
+$\sigma$, $c$ and the \emph{ratios} between fields are physical; the overall size is
+set by whatever initial disturbance one assumes. This is why the movie may fix the
+overall constant once (final meander $=0.5b$) and apply it to every frame and every
+field --- that is a re-choice of $A_0$, not a distortion.
+
+% ===================================================================
+\section{Measuring $\sigma$ and $c$}
+
+The centreline is demodulated onto its seeded mode,
+$a(t)=\widehat{\zeta_c}(m,t)$, and
+\begin{equation}
+  \sigma=\frac{\mathrm d}{\mathrm dt}\ln|a|,\qquad
+  c=-\frac1k\frac{\mathrm d}{\mathrm dt}\arg a ,
+  \tag{$\to$ \code{measure\_sigma\_c}}
+\end{equation}
+both fitted over the last two thirds of the run (dropping the initial adjustment,
+during which the flow spins up from rest). $\sigma>0$ is an unstable meander;
+$c>0$ means the bend train migrates downstream.
+
+% ===================================================================
+\section{What the model deliberately does \emph{not} contain}
+
+Strictly linear perturbation dynamics (no $\bm u'\!\cdot\!\nabla\bm u'$); no
+sediment (Exner) feedback --- the bed $H$ is prescribed, only the banks move; no
+rotation ($f=0$, a river); no vertical structure, hence no helical secondary flow
+(it is depth-averaged away); and the base state is frozen (its steady residual is an
+implicit forcing). The lateral viscosity uses the flat Laplacian rather than the
+exact curvilinear vector Laplacian --- it is a wall-closure and short-wave
+regulariser, small, and not part of the physics being measured.
+
+\end{document}

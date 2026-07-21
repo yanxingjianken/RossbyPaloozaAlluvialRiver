@@ -20,18 +20,18 @@
 # -----------------------------------------------------------------------------
 #  ENVIRONMENT & RUN (micromamba env `dedalus`, Dedalus v3.0.5):
 #
-#    micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py --mode ivp
-#    micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py --mode sweep
-#    micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py --mode profiles  # smoke
+#    micromamba run -n dedalus env OMP_NUM_THREADS=1 python sw_sn_driver.py
 #
-#  Writes RAW HDF5 to outputs/ only; all figures/movies live in postprocessing/.
+#  That is the ONLY run.  Everything is configured in the CONFIG dict at the top
+#  of this file -- edit it and re-run; there are no modes and no CLI options.
+#  Writes RAW HDF5 to outputs/ only; all figures/movies live in postprocessing/,
+#  base-state checks in tests/, the k/Froude experiment in sweep_dispersion.py,
+#  and the derivation of every equation below in derivations/.
 # =============================================================================
 """dedalus_meander_full_SW core driver: (s,n) shallow-water meander IVP."""
 from __future__ import annotations
 
-import argparse
 import os
-import sys
 
 import numpy as np
 
@@ -62,11 +62,18 @@ CONFIG = dict(
     kmeander=0.30,       # meander (bend) wavenumber along s
     Cbar_amp=None,       # DIRECT base-curvature amplitude override (None -> A_bank*kmeander^2);
                          #   set e.g. 0.3 for a genuinely tight/finite meander (needs Cbar_amp*b<1)
-    # --- bed  H(s,n)  (adjustable expression; default deeper thalweg) ------- #
-    #   bed_H(s,n) returns the still-water depth; edit bed_depth() below.
-    cross_amp=0.0,       # cross-channel thalweg bump amplitude (0 = flat H=H0)
-    along_amp=0.0,       # along-channel (s) bed variation amplitude
-    along_kbed=0.30,
+    # --- bed  H(s,n)  (adjustable expression; see bed_depth() below) -------- #
+    #   H(s,n) = H0 * [1 + cross_amp*(1 - (n/b)^2)] * [1 + along_amp*cos(k_bed s)]
+    #            \______ PARABOLIC across the channel ______/  \__ COSINE along it __/
+    #   i.e. a parabolic thalweg in n (deepest mid-channel, like the jet profile)
+    #   times a sinusoidal bedform train in s (alternate bars).  Examples:
+    #     cross_amp=0.3, along_amp=0    -> H(n) only : parabolic thalweg, uniform along s
+    #     cross_amp=0,   along_amp=0.2  -> H(s) only : flat across, cosine bars along s
+    #     cross_amp=0.3, along_amp=0.2  -> H(s,n)    : both
+    #     cross_amp=0,   along_amp=0    -> FLAT bed H = H0   <-- the default below
+    cross_amp=0.0,       # parabolic cross-channel thalweg amplitude (0 = flat in n)
+    along_amp=0.0,       # cosine along-channel bedform amplitude   (0 = uniform in s)
+    along_kbed=0.30,     # along-channel bedform wavenumber k_bed
     # --- friction (C_f drag on BOTH s and n momentum) ---------------------- #
     Cf=0.05,             # bottom drag coefficient  (linearized r = Cf*Ubar_s/hbar)
     # --- bank erodibility -------------------------------------------------- #
@@ -178,41 +185,6 @@ def etabar(s, n, cfg):
         cum = cum - cum[i0]                              # zero the integral at n'=0
         out[i, :] = (Cb / g) * np.interp(n_arr, ng, cum)
     return out[0, 0] if np.isscalar(s) and np.isscalar(n) else np.squeeze(out)
-
-
-# =========================================================================== #
-#  Smoke test of the base profiles (physics sanity BEFORE the Dedalus build)
-# =========================================================================== #
-def _selftest_profiles():
-    cfg = dict(CONFIG)
-    n = np.linspace(-cfg["b"], cfg["b"], 201)
-    print("=== base-profile smoke test ===")
-    U = ubar_s(n, cfg)
-    print(f"Ubar_s: center={U[len(U)//2]:.3f} (want {center_speed(cfg):.3f}), "
-          f"edge={U[0]:.3f} (want {cfg['U0']:.3f})")
-    assert abs(U[len(U) // 2] - center_speed(cfg)) < 1e-9
-    assert abs(U[0] - cfg["U0"]) < 1e-9
-    # constant curvature (channel-beta): d2 Ubar_s/dn2 numerically == -2 Delta/b^2
-    d2 = np.gradient(np.gradient(U, n), n)
-    print(f"d2 Ubar_s/dn2: numerical median={np.median(d2):.4f}, "
-          f"analytic={ubar_s_nn(cfg):.4f} (const = channel-beta 2*Delta/b^2={2*cfg['Delta']/cfg['b']**2:.4f})")
-    assert abs(np.median(d2) - ubar_s_nn(cfg)) < 1e-2
-    # metric positivity (no folding): sigma = 1 + n*Cbar must stay > 0
-    s = np.linspace(0, 2 * np.pi / cfg["kmeander"], 101)
-    S, N = np.meshgrid(s, n, indexing="ij")
-    sig = sigma_metric(S, N, cfg)
-    print(f"sigma=1+nCbar: min={sig.min():.3f} (want >0; Cbar_amp={cfg['A_bank']*cfg['kmeander']**2:.4f})")
-    assert sig.min() > 0, "meander too tight: sigma<=0 (folding). reduce A_bank or kmeander."
-    # superelevation: outer bank higher; zero when Cbar=0
-    eb = etabar(s, n, cfg)
-    ic = int(np.argmax(np.abs(cbar(s, cfg))))            # s of max curvature
-    print(f"eta_bar at max-curvature s: edge diff (n=+b)-(n=-b) = "
-          f"{eb[ic, -1]-eb[ic, 0]:+.4e}  (superelevation; sign follows Cbar)")
-    eb0 = etabar(s, n, dict(cfg, A_bank=0.0))
-    print(f"eta_bar with A_bank=0 (straight): max|eta_bar|={np.max(np.abs(eb0)):.2e} (want ~0)")
-    assert np.max(np.abs(eb0)) < 1e-12
-    print("profiles PASSED (parabolic jet, const channel-beta, positive metric, "
-          "superelevation, straight-limit eta_bar=0)")
 
 
 # =========================================================================== #
@@ -426,38 +398,7 @@ def run_ivp_SW(cfg, tag=None):
     return path, built
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", default="profiles",
-                    choices=("profiles", "ivp", "sweep"))
-    ap.add_argument("--kstar", type=float, default=None)
-    ap.add_argument("--A-bank", type=float, default=None)
-    ap.add_argument("--Cbar-amp", type=float, default=None)
-    ap.add_argument("--Froude", type=float, default=None)
-    ap.add_argument("--Cf", type=float, default=None)
-    ap.add_argument("--Ns", type=int, default=None)
-    ap.add_argument("--Nn", type=int, default=None)
-    ap.add_argument("--t-end", type=float, default=None)
-    args = ap.parse_args()
-    cfg = dict(CONFIG)
-    for k, v in (("kstar", args.kstar), ("A_bank", args.A_bank),
-                 ("Cbar_amp", args.Cbar_amp), ("Froude", args.Froude),
-                 ("Cf", args.Cf), ("Ns", args.Ns), ("Nn", args.Nn),
-                 ("t_end", args.t_end)):
-        if v is not None:
-            cfg[k] = v
-    if args.mode == "profiles":
-        _selftest_profiles()
-    elif args.mode == "ivp":
-        run_ivp_SW(cfg)
-    elif args.mode == "sweep":
-        ks = np.linspace(0.15, 1.2, 12)
-        print(f"# dispersion sweep over k (F={cfg['Froude']}, "
-              f"Cbar_amp={cfg.get('Cbar_amp')}):")
-        for kv in ks:
-            run_ivp_SW(dict(cfg, kstar=float(kv)),
-                       tag=None)
-
-
 if __name__ == "__main__":
-    main()
+    # ONE run of the case configured in CONFIG at the top of this file.
+    # (Edit CONFIG and re-run; there are no modes and no command-line options.)
+    run_ivp_SW(CONFIG)

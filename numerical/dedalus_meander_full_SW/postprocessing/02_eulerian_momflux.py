@@ -50,12 +50,19 @@ def render(path):
           if a["Cbar_amp"] in ("None", b"None") else float(a["Cbar_amp"]))
     km = float(a["kmeander"])
     zc_final = max(np.max(np.abs(res["zc"][-1])), 1e-30)
-    # ABSOLUTE-EULERIAN scaling. The model is LINEAR, so the overall amplitude is a
-    # free constant = the seed choice. We fix it ONCE so the FINAL meander is 0.5
-    # channel half-widths, then draw EVERY frame with that same constant (display
-    # gain 1, no per-frame renormalisation) -> the meander and the colours both
-    # grow with the true e^{sigma t}.
-    G = 0.5 * b / zc_final
+    # ABSOLUTE-EULERIAN scaling.  The model is LINEAR, so the overall amplitude is a
+    # free constant (= the seed choice).  We fix it ONCE, then draw EVERY frame with
+    # that same constant (display gain 1, no per-frame renormalisation) -> meander
+    # and colours both grow with the true e^{sigma t}.
+    #
+    # The constant is set by LINEAR VALIDITY, not by what looks big: we scale so the
+    # final perturbation velocity is LIN_FRAC of the base jet, i.e. |u'|/Ubar = 0.15.
+    # (Scaling instead to a "nice" 0.5b meander would put |u'|~|Ubar| -- formally
+    #  outside the linear regime the model is solving.)
+    LIN_FRAC = 0.15
+    us_final = max(np.percentile(np.abs(res["us"][-1]), 99.5), 1e-30)
+    G = LIN_FRAC * float(np.max(np.abs(PP.MD.ubar_s(n, cfg)))) / us_final
+    zc_disp = G * zc_final                                 # resulting meander, in b
 
     cbar_s = Cb * np.cos(km * s)
     momf = np.array([PP.momflux(res, i) for i in range(nfr)])
@@ -91,6 +98,13 @@ def render(path):
         sm.set_array([])
         fig.colorbar(sm, ax=ax, fraction=0.05, pad=0.02,
                      label=title + "  (ONE fixed scale)")
+    # cross-section colourbar: ONE fixed range, added ONCE here (never inside draw(),
+    # which FuncAnimation calls repeatedly -> would stack duplicate colourbars)
+    u_lo = float(np.min(Ubn / Hn) - abs(G) * np.percentile(np.abs(res["us"][-1]), 99.5) / Hn.min())
+    u_hi = float(np.max(Ubn / Hn) + abs(G) * np.percentile(np.abs(res["us"][-1]), 99.5) / Hn.min())
+    smc = plt.cm.ScalarMappable(norm=plt.Normalize(u_lo, u_hi), cmap="viridis")
+    smc.set_array([])
+    fig.colorbar(smc, ax=axc, fraction=0.05, pad=0.02, label=r"$\bar u_s/h$ (ONE fixed scale)")
 
     def centerline_xy(i):
         return PP.centerline(s, cbar_s, zc=G * res["zc"][i])
@@ -122,7 +136,8 @@ def render(path):
         u_col = (Ubn / Hn) + G * res["us"][i, ic] / Hn     # depth-averaged jet + perturbation
         U2 = np.where((zg[:, None] > -Hn[None, :]) & (zg[:, None] < surf[None, :]),
                       u_col[None, :], np.nan)
-        pc = axc.pcolormesh(n, zg, U2, cmap="viridis", shading="auto")
+        axc.pcolormesh(n, zg, U2, cmap="viridis", shading="auto",
+                       vmin=u_lo, vmax=u_hi)          # same fixed range as its colourbar
         axc.plot(n, -Hn, color="saddlebrown", lw=2.2)
         axc.fill_between(n, -Hn, zg.min(), color="saddlebrown", alpha=0.25)
         axc.plot(n, surf, color="steelblue", lw=1.8)       # free surface
@@ -131,8 +146,6 @@ def render(path):
         axc.set_xlim(-1.35 * b, 1.35 * b); axc.set_ylim(zg.min(), zg.max())
         axc.set_xlabel(r"cross-channel $n$"); axc.set_ylabel(r"depth $z$")
         axc.set_title(r"$y$-$z$ cross-section (bed+jet+banks+$\eta$)", fontsize=9)
-        if i == 0:
-            fig.colorbar(pc, ax=axc, fraction=0.05, pad=0.02, label=r"$\bar u_s/h$")
 
         # ---- growth stats ----------------------------------------------------
         axst.clear(); axst.axis("off")
@@ -151,11 +164,11 @@ def render(path):
                   va="top", ha="left", fontsize=10, transform=axst.transAxes)
 
         fig.suptitle(
-            rf"full shallow-water meander (s,n)$\to$lab  |  init wavelength $k={k:g}$  "
-            rf"($\lambda=2\pi/k={2*np.pi/k:.1f}$)  |  $F={F:g}$, $\bar C={Cb:.2g}$  |  "
-            rf"ABSOLUTE Eulerian: ONE fixed scale, display gain 1, no per-frame norm "
-            rf"$\Rightarrow$ colours & banks grow with the true $e^{{\sigma t}}$",
-            fontsize=11)
+            rf"SW meander $(s,n)\!\to$lab | $k={k:g}$ ($\lambda={2*np.pi/k:.1f}$), "
+            rf"$F={F:g}$, $\bar C={Cb:.2g}$ | ABSOLUTE Eulerian: ONE fixed scale, "
+            rf"true $e^{{\sigma t}}$ | $|u'|/\bar U={LIN_FRAC:g}$ "
+            rf"$\Rightarrow$ meander ${zc_disp:.2f}b$",
+            fontsize=10)
         return []
 
     fig.tight_layout(rect=[0, 0, 1, 0.95])
