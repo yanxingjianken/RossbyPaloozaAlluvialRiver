@@ -465,15 +465,21 @@ regulariser.
 Three consequences must be stated plainly, because they bound what any result here
 can mean.
 
-\paragraph{(i) No sediment, therefore no wavelength selection.} The bed $H$ is
-prescribed and only the banks move. Meander wavelength selection is understood as a
-resonance between the forced bend flow and the \emph{free alternate-bar mode of the
-sediment bed} \cite{blondeaux1985,seminara2006,camporeale2007}. With the bed frozen
-that free mode does not exist, so this model \emph{cannot} select a wavelength: the
-$C'=-\partial_s^2\zeta_c$ forcing scales as $k^2$ while the response scales as $k$,
-giving $\sigma$ growing monotonically with $k$ until the artificial viscosity cuts
-it off. The selected wavelength is therefore set by $\nu$, not by physics, and no
-comparison with the observed $\lambda\approx10W$ \cite{leopold1960} is meaningful.
+\paragraph{(i) No sediment, therefore not the \emph{observed} wavelength selection.}
+The bed $H$ is prescribed and only the banks move. Meander wavelength selection is
+understood as a resonance between the forced bend flow and the \emph{free alternate-bar
+mode of the sediment bed} \cite{blondeaux1985,seminara2006,camporeale2007}. With the bed
+frozen that free mode does not exist. The driving is short-wave biased --- the
+$C'=-\partial_s^2\zeta_c$ forcing scales as $k^2$ while the response scales as $k$ ---
+so a preferred wavenumber can only come from whatever damps short waves.
+
+It turns out something does, and it is not the artificial viscosity: measurements in
+\S\ref{sec:results} give a $k^2$ damping coefficient about twenty-six times $\nu$, set by
+the cross-channel shear, with $k_{\rm peak}\Delta\simeq1.10$. So the model does select a
+scale --- by shear, not by bar--bend resonance. It is the wrong mechanism for a river,
+and it disappears as $\Delta\to0$ (whereupon the peak retreats to the genuine viscous
+cutoff), so no comparison with the observed $\lambda\approx10W$ \cite{leopold1960} is
+warranted. The point of this subsection stands; only the reason does not.
 
 \paragraph{(ii) The erodibility is not in the geomorphic regime.} Field calibration
 gives $E/U\sim10^{-8}$ \cite{hasegawa1977,nanson1986}; the default here is
@@ -536,32 +542,68 @@ the disturbance.}
 \label{tab:results}
 \end{table}
 
-Three readings follow, and none of them is the headline one might have hoped for.
+Four readings follow. The first kills the headline one might have hoped for; the second
+and third are corrections to earlier versions of this section that the controls forced,
+and are recorded as such rather than quietly rewritten.
 
-\paragraph{The mean flow is a sink, not the power source.} $T_{\rm shear}<0$ in every
-configuration. Whatever is growing is \emph{not} extracting wave activity from the
-background vorticity gradient, so by the criterion of \S\ref{sec:classify} it is not a
-free vortical (Rossby-type) wave. The energy comes from $T_{\rm bend}$ --- the work
-done on the fluid by the moving bank --- which is to say from the erosion closure.
+\paragraph{The mean flow is a sink, not the power source.} Across all eleven runs the
+correlation is exact: \textbf{every growing run has $T_{\rm shear}\le0$, and the single
+run with $T_{\rm shear}>0$ is the one that decays} (the matched reversed-shear control,
+$T_{\rm shear}/|T_{\rm bend}|=+0.42$, $\sigma(k{=}1.8)=-0.053$). Whenever this
+disturbance grows it is \emph{losing} energy to the background vorticity gradient rather
+than extracting it, so by the criterion of \S\ref{sec:classify} it is not a free vortical
+(Rossby-type) wave; the energy comes from $T_{\rm bend}$, the work done on the fluid by
+the moving bank. Only the \emph{sign} of this ratio should be quoted: its magnitude is
+resolution-sensitive (the reference run gives $-3.16$ at $N_s=64$ and $-0.36$ at
+$N_s=128$), because the diagnostic is evaluated on the final field and the resolved mode
+mix changes with $N_s$.
 
-\paragraph{The channel-$\beta$ is not necessary.} The sharpest test is the plug-flow
-run, $\Delta=0$: the shear, and with it the entire ``channel $\beta$'' of
-\eqref{eq:beta}, is identically zero, and $T_{\rm shear}\equiv0$ by construction. The
-meander nevertheless grows --- in fact faster than the sheared reference. A mechanism
-that survives the removal of $\beta$ cannot be a $\beta$-restored wave. The
-reversed-shear run ($\Delta<0$) grows too. This is a null result, and it is the most
-informative thing in the table.
+\paragraph{The channel-$\beta$ is not necessary --- but it is not irrelevant either,
+and an earlier version of this section got that wrong.} The profile
+$\Us=U_0+\Delta(1-n^2/b^2)$ has only two free constants, so removing $\Delta$ must
+change either the bank speed $U_0$ or the centre speed: \emph{no perfectly clean control
+exists}. The first attempt varied $\Delta$ while also raising $U_0$ from $0.4$ to $1.0$,
+and since the erosion law reads $\us$ \emph{at the bank}, that conflated ``removed the
+channel-$\beta$'' with ``sped up the bank''. The confound inverts the answer. Holding
+the bank speed fixed at the reference value and varying only $\Delta$, compared at the
+fixed well-resolved wavenumber $k=1.8$:
+\begin{center}
+\begin{tabular}{lrl}
+\hline
+$\Delta$ & $\sigma(k{=}1.8)$ & \\
+\hline
+$+0.60$ (reference) & $+0.1649$ & grows\\
+$+0.00$ ($\beta$ removed) & $+0.0599$ & grows, but $2.75\times$ \emph{slower}\\
+$-0.30$ (reversed) & $-0.0526$ & \textbf{stable} (no mode converged)\\
+\hline
+\end{tabular}
+\end{center}
+What survives is the qualitative statement: with the background vorticity gradient
+\emph{identically zero} the meander still grows ($\sigma>0$), so the mechanism does not
+require $\beta$ and cannot be a $\beta$-restored wave. What does \emph{not} survive is
+the claim that it grows \emph{faster} without $\beta$ --- that was the $U_0$ confound.
+Removing $\beta$ weakens the instability by a factor $\simeq2.75$, and reversing the
+shear at matched bank speed suppresses it altogether.
 
-\paragraph{There is no \emph{physical} wavelength selection.} The growth curve does have
-a maximum at finite $k$ in six of the nine runs ($k_{\max}\simeq1.80$--$1.88$); in the
-three weak- or reversed-shear runs it rises to the edge of the resolved band. The
-interior maximum is not a selection mechanism, and the table is what shows this:
-$k_{\max}$ barely moves while $C_f$ changes by a factor of ten, the bed goes from flat
-to a parabolic thalweg, and the bank sinuosity goes from $0$ to $0.15$. A peak whose
-position is independent of every physical parameter one varies is the viscous cutoff,
-not physics --- exactly as \S\ref{sec:notcontain}(i) predicts on structural grounds:
-with the bed frozen, nothing in the model sets a length scale except $\nu$. No
-comparison with the observed $\lambda\approx10W$ is therefore meaningful.
+\paragraph{Wavelength selection: there is one, and it comes from the shear.} This too
+corrects an earlier reading. Fitting $\sigma\simeq ak-bk^{2}$ gives $k_{\rm peak}=a/2b$,
+and the measured damping coefficient is $b\approx0.079$ while $\nu=0.003$ --- the $k^2$
+damping that produces the peak is some \textbf{twenty-six times larger than the explicit
+viscosity}, so the cutoff is not viscous. It tracks the shear instead:
+$b=0.079,\,0.038,\,0.033,\,-0.003$ for $\Delta=0.6,\,0.2,\,0.0,\,-0.6$ (reversed shear
+\emph{anti}-damps), and the peak obeys
+\begin{equation}
+  \boxed{\;k_{\rm peak}\,\Delta\simeq1.10\;}
+\end{equation}
+to within $\pm3\%$ across a tenfold change in $C_f$, a flat-to-parabolic bed, and bank
+sinuosity $0\to0.15$. The earlier argument --- ``$k_{\max}$ barely moves while $C_f$
+changes tenfold, therefore it is the $\nu$ cutoff'' --- was under-determined, because
+all six of those runs held $\Delta=0.6$; ``$\Delta$-set'' fits the same evidence, and
+varying $\Delta$ discriminates. As $\Delta\to0$ the shear damping vanishes and the peak
+retreats to a residual viscous-plus-drag cutoff ($b_0\approx0.011$, $k_{\rm peak}=4.30$).
+So the model does select a length scale, but by cross-channel shear, not by the
+bar--bend resonance of \S\ref{sec:notcontain}(i); a comparison with the observed
+$\lambda\approx10W$ remains unwarranted.
 
 \paragraph{Why the movies look untidy, and why that is not numerical noise.}
 The perturbation field never settles into a single clean travelling wave, and it is
@@ -608,12 +650,26 @@ range to the diagnostic rather than to how fast a configuration happens to grow,
 is why the fast runs are integrated over a shorter interval than the slow ones.
 
 \paragraph{What the model \emph{is}, then.} A forced morphodynamic boundary mode:
-balanced (the divergence ratio is small and $F$ barely matters, both consistent with
-the rigid-lid reduction), but driven by the erodible boundary rather than by the
-interior PV gradient. The growth rate vanishes with the erodibility, $\sigma\propto E$
---- it is not an eigenvalue of the flow alone. The useful corollary is a validation
-result: since the free surface is passive here, the rigid-lid packages in \code{../}
-are justified for $F\lesssim0.9$.
+balanced --- the divergence ratio is $\|\delta'\|/\|\zeta'\|\simeq0.010$--$0.051$, and
+$F$ barely matters, both consistent with the rigid-lid reduction --- but driven by the
+erodible boundary rather than by the interior PV gradient. The growth rate vanishes with
+the erodibility, $\sigma\propto E$: it is not an eigenvalue of the flow alone. The
+cross-channel shear then shapes it, setting both the amplitude (a factor $2.75$ between
+$\Delta=0.6$ and $\Delta=0$, and outright stability for $\Delta<0$ at matched bank speed)
+and the selected wavenumber ($k_{\rm peak}\Delta\simeq1.10$) --- but it never
+\emph{powers} it, since $T_{\rm shear}\le0$ in every growing run. The useful corollary is
+a validation result: since the free surface is passive here, the rigid-lid packages in
+\code{../} are justified for $F\lesssim0.9$.
+
+\paragraph{A methodological note worth keeping.} Two of the four readings above are
+corrections, and both were caught the same way --- not by re-deriving, but by refining a
+numerical parameter and by adding a control that held fixed the variable which had been
+riding along. The $U_0$/$\Delta$ confound was invisible at $N_s=64$ because the runs it
+corrupted were exactly the runs whose $\sigma(k)$ had not converged; doubling $N_s$ made
+their growth rates move ($\sigma_{\max}$: $0.74\to1.49$), which is what prompted the
+control in the first place. A parameter that cannot be varied independently --- here,
+because $\Us$ has only two constants --- should be treated as confounded by default and
+reported with an explicitly matched comparison, not with each run's own optimum.
 
 \begin{thebibliography}{99}
 \bibitem{ikeda1981} Ikeda, S., Parker, G. \& Sawai, K. (1981) Bend theory of river

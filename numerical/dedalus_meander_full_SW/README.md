@@ -85,12 +85,39 @@ cd postprocessing
 and — the decisive test — whether the mean-flow PV gradient actually powers it
 (`T_shear > 0`) or is an energy sink (`T_shear ≤ 0`). `classify_mode()` reports these.
 
+### Results (11 runs, Ns=128)
+
+**It is not a free vortical/Rossby wave.** Across all runs the correlation is exact:
+every **growing** run has `T_shear ≤ 0`, and the single run with `T_shear > 0` is the one
+that **decays**. When this thing grows it is *losing* energy to the mean flow. Quote only
+the **sign** — the magnitude is resolution-sensitive (reference: −3.16 at Ns=64, −0.36 at
+Ns=128).
+
+**The channel-β is not necessary, but it is not irrelevant.** `Ūs = U0 + Δ(1−n²/b²)` has
+only two constants, so removing Δ *must* change either the bank speed or the centre speed
+— there is no perfectly clean control. Since erosion is driven at the bank, hold `U0`
+fixed. At the fixed well-resolved k = 1.8:
+
+| Δ | σ(k=1.8) | |
+|---|---|---|
+| +0.60 (reference) | **+0.1649** | grows |
+| +0.00 (β removed) | **+0.0599** | grows, but **2.75× slower** |
+| −0.30 (reversed) | **−0.0526** | **stable** |
+
+So σ > 0 with the background vorticity gradient *identically zero* ⇒ the mechanism does
+not require β and cannot be β-restored. ⚠️ An earlier version claimed it grows **faster**
+without β — that was a confound: those runs also raised `U0` 0.4→1.0. See the two
+`CONTROL …, matched bank speed` configs in `experiments.py`.
+
 **Cannot:**
-- **Select a meander wavelength.** The bed is prescribed (no Exner), so the free
-  alternate-bar mode that sets λ by bar–bend resonance does not exist. σ(k) has a
-  maximum at k ≈ 1.8 in 6 of the 9 runs, but it barely moves across a 10× change in
-  `C_f`, a flat→parabolic bed, and bank sinuosity 0→0.15 — a peak independent of every
-  physical knob is the ν cutoff, not selection. No comparison with λ ≈ 10 W is meaningful.
+- **Select the *observed* meander wavelength.** The bed is prescribed (no Exner), so the
+  free alternate-bar mode that sets λ by bar–bend resonance does not exist. The model
+  *does* select a scale, but by the wrong mechanism: the k² damping is ~26× ν and is set
+  by the **cross-channel shear**, giving **k_peak · Δ ≈ 1.10** (±3% across C_f ×10,
+  flat→parabolic bed, bank 0→0.15). As Δ→0 that vanishes and the peak retreats to the
+  genuine viscous cutoff. No comparison with λ ≈ 10 W is warranted.
+  *(An earlier version attributed this peak to ν. That was under-determined — all six
+  runs behind it held Δ=0.6; varying Δ discriminates.)*
 
 ### Why the movies look busy (it is not numerical noise)
 

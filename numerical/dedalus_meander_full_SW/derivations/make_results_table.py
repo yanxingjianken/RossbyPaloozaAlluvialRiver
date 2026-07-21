@@ -81,15 +81,23 @@ def main():
           rf"$\sigma(k{{=}}{K_REF:g})$ & $k_{{\max}}$ & $\sigma_{{\max}}$ & $c$ "
           r"& $\|\delta'\|/\|\zeta'\|$ & $T_{\rm shear}/|T_{\rm bend}|$\\"), r"\hline"]
     for r in rows:
-        # a growth rate whose maximum sits at the grid edge is a property of Ns, not of
-        # the equations: mark it so it can never be read as a converged number
-        mk = "" if r["kconv"] else r"$^{\dagger}$"
+        if not np.isfinite(r["k"]):
+            # nothing grew at all -- a STABLE configuration, which is a result, not a
+            # missing number, and emphatically not a resolution problem
+            kcell = scell = ccell = r"\emph{stable}"
+        else:
+            # a growth rate whose maximum sits at the grid edge is a property of Ns, not
+            # of the equations: mark it so it can never be read as a converged number
+            mk = "" if r["kconv"] else r"$^{\dagger}$"
+            kcell = f"{r['k']:.2f}{mk}"
+            scell = f"{r['sigma']:+.4f}{mk}"
+            ccell = f"{r['c']:+.3f}"
         L.append(f"{r['bed']} & {r['bank']:.3g} & {r['Cf']:.3g} & {r['U0']:.2g} & "
-                 f"{r['Delta']:+.2g} & {r['s_ref']:+.4f} & {r['k']:.2f}{mk} & "
-                 f"{r['sigma']:+.4f}{mk} & {r['c']:+.3f} & {r['div']:.4f} & "
-                 f"{r['ratio']:+.3f}\\\\")
+                 f"{r['Delta']:+.2g} & {r['s_ref']:+.4f} & {kcell} & {scell} & "
+                 f"{ccell} & {r['div']:.4f} & {r['ratio']:+.3f}\\\\")
     L += [r"\hline", r"\end{tabular}"]
-    nbad = sum(not r["kconv"] for r in rows)
+    # a stable run has no k_max to be unconverged about -- don't count it as flagged
+    nbad = sum(not r["kconv"] and np.isfinite(r["k"]) for r in rows)
     if nbad:
         L += [r"", (rf"\smallskip\noindent$^{{\dagger}}$\,{nbad} run(s): $\sigma(k)$ is still "
                     r"\emph{rising} at the last resolved wavenumber, so $k_{\max}$ and "

@@ -48,8 +48,20 @@ CONFIGS = [
     ("friction: low",        dict(Cf=0.010)),
     ("friction: high",       dict(Cf=0.100)),
     ("U0: fast banks",       dict(U0=0.80, Delta=0.20)),
-    ("jet: plug (no shear)", dict(U0=1.00, Delta=0.00)),
-    ("jet: reversed shear",  dict(U0=1.00, Delta=-0.60)),
+    # --- CONFOUNDED pair, kept only as a cautionary record -------------------- #
+    # These vary Delta but ALSO raise U0 to 1.0.  U0 is the speed at the BANK, and the
+    # erosion law reads u_s there, so they conflate "removed the channel-beta" with
+    # "sped up the bank" -- and the confound inverts the answer (they appear to grow
+    # FASTER without shear; the matched controls below show the opposite).
+    ("jet: plug, U0 raised (CONFOUNDED)",     dict(U0=1.00, Delta=0.00)),
+    ("jet: reversed, U0 raised (CONFOUNDED)", dict(U0=1.00, Delta=-0.60)),
+    # --- the DECISIVE controls: bank speed held at the reference value --------- #
+    # Ubar_s(n)=U0+Delta(1-n^2/b^2) has only two knobs, so removing Delta MUST change
+    # either the bank speed or the centre speed -- there is no perfectly clean control.
+    # Since the erosion is driven at the bank, holding U0 fixed is the comparison that
+    # isolates the channel-beta, and it is the one to quote.
+    ("CONTROL plug, matched bank speed",     dict(U0=0.40, Delta=0.00)),
+    ("CONTROL reversed, matched bank speed", dict(U0=0.40, Delta=-0.30)),
 ]
 
 

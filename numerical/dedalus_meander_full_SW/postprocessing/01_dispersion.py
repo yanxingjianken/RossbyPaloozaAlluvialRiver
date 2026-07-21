@@ -23,12 +23,21 @@ import matplotlib.pyplot as plt
 
 import pp_lib as PP
 
+# measured in the parameter study: the short-wave cutoff is set by the SHEAR, not by nu
+KD_LAW = 1.10
+
 runs = sorted(glob.glob(os.path.join(PP.OUT_DIR, "run_*.h5")))
 if not runs:
     raise SystemExit("no ../outputs/run_*.h5 — run ../sw_sn_driver.py first")
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 4.8), dpi=120)
-colors = plt.cm.viridis(np.linspace(0.12, 0.88, len(runs)))
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.5, 5.2), dpi=120)
+
+# Colour by Delta, not by filename order.  Delta is what controls the short-wave cutoff
+# (k_peak*Delta ~ 1.10), so an arbitrary per-file colour hides the one systematic the
+# figure exists to show.
+_D = [float(PP.load_run(p)["attrs"]["Delta"]) for p in runs]
+_norm = plt.Normalize(min(_D + [-0.6]), max(_D + [0.6]))
+colors = [plt.cm.coolwarm_r(_norm(d)) for d in _D]
 
 for path, col in zip(runs, colors):
     r = PP.load_run(path)
@@ -43,6 +52,11 @@ for path, col in zip(runs, colors):
            f", $U_0$={float(a['U0']):.2g}, $\\Delta$={float(a['Delta']):+.2g}")
     ax1.plot(k[ok], sg[ok], "o-", color=col, lw=1.8, ms=4, label=lab)
     ax1.plot(k[~ok], sg[~ok], "o", mfc="none", color=col, ms=4, alpha=0.5)
+    # the measured law k_peak * Delta ~ 1.10: mark where it PREDICTS this run's peak,
+    # so the figure tests the claim instead of merely being consistent with it
+    D = float(a["Delta"])
+    if D > 0.05 and np.any(ok):
+        ax1.axvline(KD_LAW / D, color=col, ls=":", lw=1.2, alpha=0.85)
     ax2.plot(k[ok], c[ok], "o-", color=col, lw=1.8, ms=4, label=lab)
     ax2.plot(k[~ok], c[~ok], "o", mfc="none", color=col, ms=4, alpha=0.5)
     # Doppler-shifted gravity band: the correct reference is Ubar +/- 1/F, not 1/F
@@ -53,14 +67,19 @@ for path, col in zip(runs, colors):
 
 ax1.axhline(0, color="k", lw=0.6)
 ax1.set_xlabel(r"wavenumber $k$"); ax1.set_ylabel(r"growth rate $\sigma$")
-ax1.set_title(r"meander growth (hollow = <3 e-foldings, NOT converged)", fontsize=10)
-ax1.legend(fontsize=7); ax1.grid(alpha=0.3)
+ax1.set_title(r"meander growth — colour = $\Delta$ (the shear);  dotted = "
+              rf"$k_{{\rm peak}}={KD_LAW:g}/\Delta$;  hollow = <3 e-foldings",
+              fontsize=9.5)
+ax1.legend(fontsize=6.5, loc="upper left"); ax1.grid(alpha=0.3)
 ax2.set_xlabel(r"wavenumber $k$"); ax2.set_ylabel(r"phase speed $c$")
-ax2.set_title(r"migration speed (shaded = Doppler gravity bands $\bar U\pm1/F$)", fontsize=10)
-ax2.legend(fontsize=7); ax2.grid(alpha=0.3)
-fig.suptitle("dedalus_meander_full_SW — dispersion from broadband perturbation "
-             "(one run per configuration)", fontsize=12)
-fig.tight_layout(rect=[0, 0, 1, 0.94])
+ax2.set_title(r"migration speed (shaded = Doppler gravity bands $\bar U\pm1/F$)", fontsize=9.5)
+ax2.legend(fontsize=6.5); ax2.grid(alpha=0.3)
+fig.suptitle("dedalus_meander_full_SW — dispersion from a broadband perturbation, one run "
+             "per configuration.\nStrongly sheared runs ($\\Delta{=}0.6$) peak at "
+             "$k\\simeq1.8$ and turn over; weak/zero/reversed shear rises to the grid edge "
+             "(those $\\sigma_{\\max}$ are resolution-limited, not physical).",
+             fontsize=10)
+fig.tight_layout(rect=[0, 0, 1, 0.90])
 out = os.path.join(PP.FIG_DIR, "fig01_dispersion.png")
 fig.savefig(out)
 print(f"wrote {os.path.relpath(out, PP.PKG)}  ({len(runs)} configuration(s))")
