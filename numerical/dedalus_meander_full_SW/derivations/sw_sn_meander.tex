@@ -563,6 +563,34 @@ not physics --- exactly as \S\ref{sec:notcontain}(i) predicts on structural grou
 with the bed frozen, nothing in the model sets a length scale except $\nu$. No
 comparison with the observed $\lambda\approx10W$ is therefore meaningful.
 
+\paragraph{Why the movies look untidy, and why that is not numerical noise.}
+The perturbation field never settles into a single clean travelling wave, and it is
+worth being precise about why, because the obvious reading --- ``the simulation is
+noisy'' --- is wrong on both counts.
+
+\emph{It is a wave packet, not noise.} Measured on the final field, $90\%$ of the
+streamwise-velocity variance lives in about \textbf{seven neighbouring modes},
+$k\simeq1.65$--$2.10$, an r.m.s.\ spectral width of only $\Delta k\approx0.15$. Seven
+nearby wavenumbers with unequal phases beat against one another, which looks irregular
+but is entirely deterministic; broadband noise would instead show a flat spectrum. The
+packet width is even predictable: near its maximum $\sigma\simeq\sigma_{\max}-a(k-k_p)^2$
+with $a\approx0.077$ measured from the table, so after a time $T$ only modes with
+$a(k-k_p)^2T\lesssim1$ survive, i.e.\ $\Delta k\sim(aT)^{-1/2}\approx0.3$ at $T=120$ ---
+consistent with what is measured. The packet therefore narrows only as $T^{-1/2}$, and
+the $\code{max\_efold}$ cap stops the run long before it becomes monochromatic.
+
+\emph{The grid is clean.} The energy in the top decade of resolved wavenumbers is
+$\sim10^{-16}$ of the total: there is no aliasing pile-up at all. And refining $N_s$
+from $64$ to $128$ at fixed $\nu$ changes $\sigma(k)$ by $0.0$--$0.1\%$ across the whole
+band, leaving the peak at $k=1.80$ --- the structure is converged, not grid-generated.
+
+\emph{What $N_s=128$ does fix is legibility.} The dominant wavelength is
+$\lambda=2\pi/1.86\approx3.4$, which at $N_s=64$ is only $2.6$ grid points per
+wavelength --- barely above the two-point Nyquist limit, so \emph{any} wave, however
+clean, would render as one-pixel stripes. At $N_s=128$ it is $5.2$ points per
+wavelength and draws as the wave it is. The production runs use $N_s=128$ for that
+reason alone; the physics is unchanged.
+
 \paragraph{A note on run length, because it sets the numbers.} Since all modes are
 seeded together, two of them separated by $\Delta\sigma$ reach an amplitude ratio
 $e^{\Delta\sigma T}$; once that exceeds $1/\varepsilon\approx4.5\times10^{15}$ (some

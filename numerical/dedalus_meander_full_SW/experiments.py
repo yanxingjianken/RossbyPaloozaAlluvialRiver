@@ -29,8 +29,15 @@ import numpy as np
 import sw_sn_driver as M
 
 # every run shares one domain so the mode grids are identical and comparable
+# Ns=128, not 64.  sigma(k) is ALREADY converged at Ns=64 (it agrees with Ns=128 to
+# 0.0-0.1% across the whole band, and the peak sits at k=1.80 in both), so this is not
+# a correctness fix -- it is a legibility one.  The growth curve is nearly flat over
+# k=1.5-2.3, so the field stays a superposition of that whole band; at Ns=64 the band
+# lies at 62-96% of the grid Nyquist and renders as one-pixel stripes that read as
+# numerical noise.  At Ns=128 the same physical modes sit at ~37% of Nyquist and look
+# like the waves they are.
 COMMON = dict(seed_type="broadband", Ls=4 * 2 * np.pi / 0.30,
-              Ns=64, Nn=96, dt=0.01, t_end=120.0, A0=1e-4)
+              Ns=128, Nn=96, dt=0.01, t_end=120.0, A0=1e-4)
 
 # --- the configurations to compare (edit here) ----------------------------- #
 CONFIGS = [

@@ -87,9 +87,28 @@ and — the decisive test — whether the mean-flow PV gradient actually powers 
 
 **Cannot:**
 - **Select a meander wavelength.** The bed is prescribed (no Exner), so the free
-  alternate-bar mode that sets λ by bar–bend resonance does not exist; σ rises
-  monotonically with k until the artificial viscosity cuts it off. The selected
-  wavelength is set by ν, not physics — no comparison with λ ≈ 10 W is meaningful.
+  alternate-bar mode that sets λ by bar–bend resonance does not exist. σ(k) has a
+  maximum at k ≈ 1.8 in 6 of the 9 runs, but it barely moves across a 10× change in
+  `C_f`, a flat→parabolic bed, and bank sinuosity 0→0.15 — a peak independent of every
+  physical knob is the ν cutoff, not selection. No comparison with λ ≈ 10 W is meaningful.
+
+### Why the movies look busy (it is not numerical noise)
+
+Measured, not asserted:
+
+- **It is a wave packet.** 90% of the final `u_s'` variance sits in **~7 neighbouring
+  modes**, k = 1.65–2.10, r.m.s. width Δk ≈ 0.15. Seven nearby wavenumbers with unequal
+  phases beat — irregular-looking but fully deterministic. Noise would be flat in k.
+  Near the peak σ ≈ σ_max − a(k−k_p)² with a ≈ 0.077, so after time T only
+  Δk ≲ (aT)^(−1/2) ≈ 0.3 survives: the packet narrows as **T^(−1/2)** and `max_efold`
+  stops the run long before it goes monochromatic.
+- **The grid is clean.** Energy in the top decade of resolved k is ~**1e-16** of the
+  total — no aliasing pile-up. And N_s 64 → 128 at fixed ν changes σ(k) by **0.0–0.1%**
+  across the whole band, peak still k=1.80. Converged, not grid-generated.
+- **What N_s=128 fixes is legibility only.** λ = 2π/1.86 ≈ 3.4, which at N_s=64 is just
+  **2.6 grid points per wavelength** — barely past the 2-point Nyquist limit, so *any*
+  wave would render as one-pixel stripes. At N_s=128 it is **5.2 points/wavelength**.
+  Production runs use N_s=128 for that reason alone; the physics is identical.
 - **Reach the geomorphic regime.** Field erodibility is `E/U ~ 1e-8`; the default here
   is O(0.1). Classical theory takes E → 0, which is what justifies imposing `u_n=0` at
   a fixed wall; at O(1) erodibility that BC is inconsistent at leading order.
