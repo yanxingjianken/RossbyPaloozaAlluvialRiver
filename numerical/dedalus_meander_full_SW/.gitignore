@@ -1,0 +1,4 @@
+# regenerable raw HDF5 (re-run --mode sweep/ivp)
+outputs/
+__pycache__/
+postprocessing/__pycache__/
