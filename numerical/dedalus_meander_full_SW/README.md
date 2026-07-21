@@ -58,9 +58,13 @@ cd postprocessing
    of the meander, measured from the IVP (per-wavelength runs), grouped by Froude.  The
    gravity speed `1/F` is marked: a meander branch that tracks `1/F` is gravity-coupled; an
    F-insensitive branch is the vortical/Rossby wave.
-2. **`momflux_eulerian_<tag>.mp4`** — the ONE fully-Eulerian movie: the `(s,n)` fields mapped
-   back to the lab-frame meandering channel (banks bound the flow), one fixed scale (true
-   `e^{σt}` growth), panels `u_s' · u_n' · η' · momentum flux u_s'u_n'`, each with a colorbar.
+2. **`momflux_eulerian_<tag>.mp4`** — fully-Eulerian movies, **one per init bank wavelength**:
+   the `(s,n)` fields mapped back to the lab-frame meandering channel (banks bound the flow,
+   free aspect), colours per-frame-normalised (visible throughout), the bank erosion amplified
+   for display (the meander visibly grows/propagates; true growth = the `×`-gain counter).
+   6 panels: `u_s' · u_n' · momentum flux u_s'u_n'` · `η' (free surface)` · a **y-z cross-section**
+   (Ikeda Fig-2b: bed `H(n)` + jet + banks + free surface) · growth stats, each with a colorbar.
+   Rendered on a straight base (`C̄=0`) so the meander forms cleanly from a near-straight channel.
 
 ## CONFIG (top of `sw_sn_driver.py`, all adjustable)
 

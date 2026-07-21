@@ -228,10 +228,16 @@ def _selftest_profiles():
 #  Bank erosion: dt(xi_+/-) = E*u_s(+/-b)  (Ikeda near-bank velocity).
 # --------------------------------------------------------------------------- #
 def _sdomain(cfg):
-    """s-domain length: Ls, or n_bends full meander wavelengths (periodic)."""
+    """s-domain length (periodic).  Sized by the base meander wavenumber if there
+    is a finite base curvature, else by the seeded perturbation wavenumber kstar
+    (so a straight-base movie run holds an integer number of clean meander bends).
+    """
     if cfg["Ls"] is not None:
         return cfg["Ls"]
-    return cfg["n_bends"] * 2.0 * np.pi / cfg["kmeander"]
+    cb = (cfg["Cbar_amp"] if cfg.get("Cbar_amp") is not None
+          else cfg["A_bank"] * cfg["kmeander"] ** 2)
+    kdom = cfg["kmeander"] if cb != 0 else cfg["kstar"]
+    return cfg["n_bends"] * 2.0 * np.pi / kdom
 
 
 def build_ivp_SW(cfg, Ns=None, Nn=None):
@@ -334,9 +340,16 @@ def seed_ivp_SW(built, k, amp):
     """
     us, un, eta, zc = built["us"], built["un"], built["eta"], built["zc"]
     s = built["s"]
+    Ls = built["Ls"]
+    # snap to the nearest EXACT domain Fourier mode so the seed is periodic
+    # (a non-commensurate cos(k s) has an edge jump -> spectral spread -> a
+    #  localized packet instead of a clean single-wavelength meander).
+    m = max(1, int(round(k * Ls / (2 * np.pi))))
+    k_eff = m * 2 * np.pi / Ls
+    built["k_eff"] = k_eff
     for f in (us, un, eta):
         f["g"][:] = 0.0
-    tb = amp * np.cos(k * s.ravel())
+    tb = amp * np.cos(k_eff * s.ravel())
     zc.change_scales(1)
     zc["g"][:] = tb[:, None] if zc["g"].ndim == 2 else tb
 

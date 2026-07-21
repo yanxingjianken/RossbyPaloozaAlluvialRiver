@@ -14,11 +14,28 @@ import os
 import numpy as np
 import h5py
 
+import sys
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PKG = os.path.dirname(HERE)
 OUT_DIR = os.path.join(PKG, "outputs")
 FIG_DIR = os.path.join(PKG, "figures")
 os.makedirs(FIG_DIR, exist_ok=True)
+
+sys.path.insert(0, PKG)
+import sw_sn_driver as MD          # noqa: E402  (base profiles for the y-z cross-section)
+
+
+def cfg_from_attrs(a):
+    """Reconstruct a driver CONFIG dict from HDF5 attrs (None strings -> None)."""
+    cfg = dict(MD.CONFIG)
+    for k in cfg:
+        if k in a:
+            v = a[k]
+            if isinstance(v, bytes):
+                v = v.decode()
+            cfg[k] = None if v == "None" else (float(v) if isinstance(v, (int, float, np.floating, np.integer)) else v)
+    return cfg
 
 
 def load_run(path):
