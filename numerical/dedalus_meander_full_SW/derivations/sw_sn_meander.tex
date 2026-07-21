@@ -552,9 +552,32 @@ that survives the removal of $\beta$ cannot be a $\beta$-restored wave. The
 reversed-shear run ($\Delta<0$) grows too. This is a null result, and it is the most
 informative thing in the table.
 
-\paragraph{There is no wavelength selection.} $k_{\max}$ sits at the short-wave end of
-the resolved band in every run, as \S\ref{sec:notcontain}(i) predicts on structural
-grounds: with the bed frozen, nothing in the model sets a length scale except $\nu$.
+\paragraph{There is no \emph{physical} wavelength selection.} The growth curve does have
+a maximum at finite $k$ in six of the nine runs ($k_{\max}\simeq1.80$--$1.88$); in the
+three weak- or reversed-shear runs it rises to the edge of the resolved band. The
+interior maximum is not a selection mechanism, and the table is what shows this:
+$k_{\max}$ barely moves while $C_f$ changes by a factor of ten, the bed goes from flat
+to a parabolic thalweg, and the bank sinuosity goes from $0$ to $0.15$. A peak whose
+position is independent of every physical parameter one varies is the viscous cutoff,
+not physics --- exactly as \S\ref{sec:notcontain}(i) predicts on structural grounds:
+with the bed frozen, nothing in the model sets a length scale except $\nu$. No
+comparison with the observed $\lambda\approx10W$ is therefore meaningful.
+
+\paragraph{A note on run length, because it sets the numbers.} Since all modes are
+seeded together, two of them separated by $\Delta\sigma$ reach an amplitude ratio
+$e^{\Delta\sigma T}$; once that exceeds $1/\varepsilon\approx4.5\times10^{15}$ (some
+$36$ e-foldings) the slower one is buried in the faster one's FFT round-off and simply
+reads back the \emph{leader's} growth rate. The e-folding gate of \S\ref{sec:seed}
+cannot catch this, because round-off inherits the leader's growth and therefore looks
+perfectly converged; it is visible instead as a spurious sawtooth in $\sigma(k)$, in
+which $\sigma$ depends only on $m$ modulo a fixed integer. At a common $t_{\rm end}=120$
+the slowest configuration here grew a harmless $13$ e-foldings while the plug-flow run
+grew $58$, and a third of the latter's spectrum was noise. Runs are therefore stopped
+when the \emph{leading} mode has grown \code{max\_efold}$=25$ e-foldings, or at
+$t_{\rm end}$, whichever comes first ($\to$ \code{run\_ivp\_SW}): the six slow runs are
+unaffected and the three fast ones stop at $t=36$--$80$. This ties the usable dynamic
+range to the diagnostic rather than to how fast a configuration happens to grow, and it
+is why the fast runs are integrated over a shorter interval than the slow ones.
 
 \paragraph{What the model \emph{is}, then.} A forced morphodynamic boundary mode:
 balanced (the divergence ratio is small and $F$ barely matters, both consistent with

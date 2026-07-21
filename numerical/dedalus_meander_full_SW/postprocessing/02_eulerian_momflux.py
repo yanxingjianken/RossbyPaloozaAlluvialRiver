@@ -115,10 +115,18 @@ def render(path):
     # ONE fixed colour limit per field, from the final frame (never per-frame)
     vlims = {key: _fixed_vlim(fld) for key, _t, fld, _c in panels}
 
-    # show the last ~x25 of growth so the movie is not mostly blank (a TIME WINDOW,
+    # Show the last ~x25 of growth so the movie is not mostly blank (a TIME WINDOW,
     # not a rescaling); everything inside it is drawn at the one fixed scale.
+    #
+    # ...but that AMPLITUDE criterion has to be floored by a FRAME count.  The driver
+    # stops a run once its leading mode has grown max_efold e-foldings, so a fast
+    # configuration is integrated over far fewer output frames than a slow one; the
+    # bare x25 rule then selects 4 frames out of 25, i.e. a 0.3 s movie.  Keep at
+    # least MIN_FRAMES (or the whole run, if it is shorter).
+    MIN_FRAMES = 40
     zc_amp_all = np.array([np.max(np.abs(res["zc"][i])) for i in range(nfr)])
     i0 = int(np.argmax(zc_amp_all > zc_amp_all[-1] / 25.0))
+    i0 = max(0, min(i0, nfr - MIN_FRAMES))
     frames_idx = list(range(i0, nfr))
 
     fig, axs = plt.subplots(2, 3, figsize=(16, 6.4), dpi=110)
