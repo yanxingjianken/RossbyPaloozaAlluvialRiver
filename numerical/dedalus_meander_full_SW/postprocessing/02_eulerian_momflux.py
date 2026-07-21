@@ -42,13 +42,19 @@ import pp_lib as PP
 
 
 def _fixed_vlim(fld_all):
-    """ONE fixed colour limit for the whole movie, from the FINAL frame.
+    """ONE fixed colour limit for the whole movie: the largest frame, over all time.
 
-    Absolute-Eulerian convention: every frame is drawn with the SAME scale, so
-    the colours genuinely build up as e^{sigma t}.  (NO per-frame normalisation --
-    that would rescale each frame to full and erase the growth.)
+    Absolute-Eulerian convention: every frame is drawn with the SAME scale, so the
+    colours genuinely build up as e^{sigma t}.  (NO per-frame normalisation -- that
+    would rescale each frame to full and erase the growth.)
+
+    Taking the max over TIME rather than the final frame matters for DECAYING modes.
+    A stable configuration peaks at the start and ends ~13x smaller, so scaling to the
+    last frame would saturate every earlier frame -- a blow-up produced entirely by the
+    display.  For a growing mode the two are identical (final IS the max), so this
+    costs nothing and is correct in both directions.
     """
-    return max(np.percentile(np.abs(fld_all[-1]), 99.5), 1e-30)
+    return max(np.percentile(np.abs(fld_all), 99.5, axis=(1, 2)).max(), 1e-30)
 
 
 def render(path):
@@ -97,8 +103,21 @@ def render(path):
     # (Scaling instead to a "nice" 0.5b meander would put |u'|~|Ubar| -- formally
     #  outside the linear regime the model is solving.)
     LIN_FRAC = 0.15
-    us_final = max(np.percentile(np.abs(res["us"][-1]), 99.5), 1e-30)
-    G = LIN_FRAC * float(np.max(np.abs(PP.MD.ubar_s(n, cfg)))) / us_final
+    # peak over TIME, not the final frame: for a decaying (stable) run the last frame is
+    # the SMALLEST, and dividing by it would inflate G until the "perturbation" drawn on
+    # the total-flow panels exceeded the base jet -- violating the very linear-validity
+    # argument that sets G.  For a growing run peak == final, so nothing changes.
+    us_peak = max(np.percentile(np.abs(res["us"]), 99.5, axis=(1, 2)).max(), 1e-30)
+    zc_peak = max(float(np.max(np.abs(res["zc"]))), 1e-30)
+    # Linearity has TWO requirements, and G is applied to BOTH fields: the velocity
+    # perturbation must stay small against the jet, AND the bank displacement must stay
+    # small against the half-width.  Calibrating on the velocity alone is fine for a
+    # growing eigenmode (where the two are locked in a fixed ratio) but fails for a
+    # decaying transient, where zc is large relative to the velocities it induces: on
+    # the stable control that put the banks 75% of a half-width out of place and drew a
+    # cusp in the channel at the release point.  Take whichever constraint binds.
+    G = LIN_FRAC * min(float(np.max(np.abs(PP.MD.ubar_s(n, cfg)))) / us_peak,
+                       float(cfg["b"]) / zc_peak)
 
     cbar_s = Cb * np.cos(km * s)
     momf = np.array([PP.momflux(res, i) for i in range(nfr)])
@@ -143,7 +162,7 @@ def render(path):
     # How many decades the symlog must span is a property of THIS run, not a constant:
     # it has to cover the run's own amplitude gain, or the early frames fall inside the
     # linear (blank) core and we are back to "nothing happens, then it explodes".
-    gain_tot = float(zc_amp[-1] / max(zc_amp[0], 1e-30))
+    gain_tot = float(zc_amp.max() / max(zc_amp.min(), 1e-30))   # span, either direction
     DECADES = float(np.clip(np.log10(max(gain_tot, 10.0)) + 1.0, 4.0, 12.0))
     norms = {k: mcolors.SymLogNorm(linthresh=vlims[k] * 10 ** (-DECADES),
                                    vmin=-vlims[k], vmax=vlims[k], base=10)
@@ -248,8 +267,10 @@ def render(path):
         axst.text(0.01, 1.00,
                   f"bed $H$: {bed}   bank $\\bar C$={Cb:.3g}   $C_f$={Cf:.3g}   "
                   f"$U_0$={U0:.2g}   $\\Delta$={Dl:+.2g}   $F$={F:g}\n"
-                  f"fastest mode $k$={kfast:.2f}, $\\sigma$={sfast:+.3f}, $c$={cfast:+.2f}"
-                  f"    |    $t$={ts[i]:.1f},  $\\zeta_c\\times{gain:.2g}$\n"
+                  + (f"fastest mode $k$={kfast:.2f}, $\\sigma$={sfast:+.3f}, "
+                     f"$c$={cfast:+.2f}" if np.isfinite(sfast)
+                     else "no growing mode: this configuration is STABLE")
+                  + f"    |    $t$={ts[i]:.1f},  $\\zeta_c\\times{gain:.2g}$\n"
                   f"{diag_txt}",
                   va="top", ha="left", fontsize=7.5, transform=axst.transAxes)
         # centreline WAVEFORM (shape only, per-frame normalised) -- this is where the
