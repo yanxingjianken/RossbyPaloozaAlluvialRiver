@@ -26,15 +26,14 @@ import matplotlib.animation as manim
 import pp_lib as PP
 
 
-def _pf_scale(fld_all, i, floor_frac=0.05):
-    """Per-frame 99.5-pct scale with a floor = floor_frac * final-frame scale.
+def _fixed_vlim(fld_all):
+    """ONE fixed colour limit for the whole movie, from the FINAL frame.
 
-    -> the pattern saturates to full colour as soon as it exceeds floor_frac of
-    its final amplitude (colours build up fast), without amplifying t~0 noise.
+    Absolute-Eulerian convention: every frame is drawn with the SAME scale, so
+    the colours genuinely build up as e^{sigma t}.  (NO per-frame normalisation --
+    that would rescale each frame to full and erase the growth.)
     """
-    pct_f = max(np.percentile(np.abs(fld_all[-1]), 99.5), 1e-30)
-    pct_i = np.percentile(np.abs(fld_all[i]), 99.5)
-    return 1.0 / max(pct_i, floor_frac * pct_f)
+    return max(np.percentile(np.abs(fld_all[-1]), 99.5), 1e-30)
 
 
 def render(path):
@@ -50,12 +49,13 @@ def render(path):
     Cb = (float(a["A_bank"]) * float(a["kmeander"]) ** 2
           if a["Cbar_amp"] in ("None", b"None") else float(a["Cbar_amp"]))
     km = float(a["kmeander"])
-    A_base = (Cb / km ** 2) if km > 0 else 0.0            # base meander lateral amplitude
     zc_final = max(np.max(np.abs(res["zc"][-1])), 1e-30)
-    # amplify the growing perturbation so the erosion is visible; target the final
-    # meander at ~ the base sinuosity (or ~0.6b if the base is ~straight)
-    target = max(0.7 * A_base, 0.6 * b)
-    Gdisp = target / zc_final
+    # ABSOLUTE-EULERIAN scaling. The model is LINEAR, so the overall amplitude is a
+    # free constant = the seed choice. We fix it ONCE so the FINAL meander is 0.5
+    # channel half-widths, then draw EVERY frame with that same constant (display
+    # gain 1, no per-frame renormalisation) -> the meander and the colours both
+    # grow with the true e^{sigma t}.
+    G = 0.5 * b / zc_final
 
     cbar_s = Cb * np.cos(km * s)
     momf = np.array([PP.momflux(res, i) for i in range(nfr)])
@@ -71,22 +71,31 @@ def render(path):
               ("uv", r"momentum flux $\overline{u_s'u_n'}$", momf, "RdBu_r"),
               ("eta", r"$\eta'$ (free surface)", res["eta"], "PuOr_r")]
 
+    # ONE fixed colour limit per field, from the final frame (never per-frame)
+    vlims = {key: _fixed_vlim(fld) for key, _t, fld, _c in panels}
+
+    # show the last ~x25 of growth so the movie is not mostly blank (a TIME WINDOW,
+    # not a rescaling); everything inside it is drawn at the one fixed scale.
+    zc_amp_all = np.array([np.max(np.abs(res["zc"][i])) for i in range(nfr)])
+    i0 = int(np.argmax(zc_amp_all > zc_amp_all[-1] / 25.0))
+    frames_idx = list(range(i0, nfr))
+
     fig, axs = plt.subplots(2, 3, figsize=(16, 6.4), dpi=110)
     axpl = [axs[0, 0], axs[0, 1], axs[0, 2], axs[1, 0]]    # 4 planform panels
     axc = axs[1, 1]                                        # y-z cross-section
     axst = axs[1, 2]                                       # growth stats
 
     for ax, (key, title, fld, cmap) in zip(axpl, panels):
-        sm = plt.cm.ScalarMappable(norm=plt.Normalize(-1, 1), cmap=cmap)
+        vl = vlims[key]
+        sm = plt.cm.ScalarMappable(norm=plt.Normalize(-vl, vl), cmap=cmap)
         sm.set_array([])
-        fig.colorbar(sm, ax=ax, fraction=0.05, pad=0.02, label=title + " (per-frame)")
+        fig.colorbar(sm, ax=ax, fraction=0.05, pad=0.02,
+                     label=title + "  (ONE fixed scale)")
 
     def centerline_xy(i):
-        zc_i = Gdisp * res["zc"][i]
-        return PP.centerline(s, cbar_s, zc=zc_i)
+        return PP.centerline(s, cbar_s, zc=G * res["zc"][i])
 
     Xf, Yf, _, _ = centerline_xy(nfr - 1)
-    xspan = Xf.max() - Xf.min()
 
     def draw(i):
         xc, yc, nx, ny = centerline_xy(i)
@@ -94,8 +103,8 @@ def render(path):
         Y = yc[:, None] + n[None, :] * ny[:, None]
         for ax, (key, title, fld, cmap) in zip(axpl, panels):
             ax.clear()
-            G = _pf_scale(fld, i)
-            ax.pcolormesh(X, Y, G * fld[i], cmap=cmap, vmin=-1, vmax=1,
+            vl = vlims[key]                                # ONE fixed scale, all frames
+            ax.pcolormesh(X, Y, fld[i], cmap=cmap, vmin=-vl, vmax=vl,
                           shading="gouraud", rasterized=True)
             ax.plot(X[:, 0], Y[:, 0], "k", lw=1.4)         # the two banks = walls
             ax.plot(X[:, -1], Y[:, -1], "k", lw=1.4)
@@ -107,10 +116,10 @@ def render(path):
         # ---- y-z cross-section at the crest (max |zc|) ------------------------
         ic = int(np.argmax(np.abs(res["zc"][i])))
         axc.clear()
-        eta_line = ebar + 6.0 * res["eta"][i, ic]          # amplify eta' for visibility
-        surf = eta_line
+        # same single global scale G (seed choice) -- no extra amplification
+        surf = ebar + G * res["eta"][i, ic]
         zg = np.linspace(-Hn.max() * 1.15, max(0.3, surf.max() + 0.2), 60)
-        u_col = (Ubn / Hn) + 6.0 * res["us"][i, ic] / Hn   # depth-averaged jet (amplified pert)
+        u_col = (Ubn / Hn) + G * res["us"][i, ic] / Hn     # depth-averaged jet + perturbation
         U2 = np.where((zg[:, None] > -Hn[None, :]) & (zg[:, None] < surf[None, :]),
                       u_col[None, :], np.nan)
         pc = axc.pcolormesh(n, zg, U2, cmap="viridis", shading="auto")
@@ -143,13 +152,14 @@ def render(path):
 
         fig.suptitle(
             rf"full shallow-water meander (s,n)$\to$lab  |  init wavelength $k={k:g}$  "
-            rf"($\lambda=2\pi/k={2*np.pi/k:.1f}$)  |  $F={F:g}$, $\bar C={Cb:.2g}$  "
-            rf"|  fully-Eulerian, banks bound the flow, erosion amplified $\times{Gdisp:.0f}$",
+            rf"($\lambda=2\pi/k={2*np.pi/k:.1f}$)  |  $F={F:g}$, $\bar C={Cb:.2g}$  |  "
+            rf"ABSOLUTE Eulerian: ONE fixed scale, display gain 1, no per-frame norm "
+            rf"$\Rightarrow$ colours & banks grow with the true $e^{{\sigma t}}$",
             fontsize=11)
         return []
 
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    anim = manim.FuncAnimation(fig, draw, frames=nfr, blit=False)
+    anim = manim.FuncAnimation(fig, draw, frames=frames_idx, blit=False)
     out = os.path.join(PP.FIG_DIR, f"momflux_eulerian_{tag}.mp4")
     anim.save(out, fps=14, dpi=110)
     draw(nfr - 1)

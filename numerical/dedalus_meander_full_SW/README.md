@@ -58,10 +58,14 @@ cd postprocessing
    of the meander, measured from the IVP (per-wavelength runs), grouped by Froude.  The
    gravity speed `1/F` is marked: a meander branch that tracks `1/F` is gravity-coupled; an
    F-insensitive branch is the vortical/Rossby wave.
-2. **`momflux_eulerian_<tag>.mp4`** — fully-Eulerian movies, **one per init bank wavelength**:
-   the `(s,n)` fields mapped back to the lab-frame meandering channel (banks bound the flow,
-   free aspect), colours per-frame-normalised (visible throughout), the bank erosion amplified
-   for display (the meander visibly grows/propagates; true growth = the `×`-gain counter).
+2. **`momflux_eulerian_<tag>.mp4`** — **ABSOLUTE-Eulerian** movies (bird's-eye), **one per init
+   bank wavelength**: the `(s,n)` fields mapped back to the lab-frame meandering channel (banks
+   bound the flow, free aspect). **ONE fixed scale for the whole movie** — colorbars carry the
+   TRUE physical values, display gain 1, **no per-frame normalisation and no extra amplification**
+   — so the colours and the banks both grow with the real `e^{σt}` (the channel starts ~straight
+   and develops the meander). The model is linear, so the single overall amplitude is a free
+   constant: it is fixed ONCE (final meander = 0.5 channel half-widths) and applied identically
+   to every frame and every field.
    6 panels: `u_s' · u_n' · momentum flux u_s'u_n'` · `η' (free surface)` · a **y-z cross-section**
    (Ikeda Fig-2b: bed `H(n)` + jet + banks + free surface) · growth stats, each with a colorbar.
    Rendered on a straight base (`C̄=0`) so the meander forms cleanly from a near-straight channel.
