@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """postprocessing/pp_lib.py -- shared helpers for dedalus_meander_full_SW.
 
-The core solver (../sw_sn_driver.py) writes raw HDF5 to ../outputs/.  Here we
+The core solver (../sw_meander.py) writes raw HDF5 to ../outputs/.  Here we
 read them and render: the dispersion relation, and the fully-Eulerian
 momentum-flux movie (the (s,n) fields mapped back to the lab-frame meandering
 channel so the two banks bound the flow).
@@ -22,7 +22,7 @@ FIG_DIR = os.path.join(PKG, "figures")
 os.makedirs(FIG_DIR, exist_ok=True)
 
 sys.path.insert(0, PKG)
-import sw_sn_driver as MD          # noqa: E402  (base profiles for the y-z cross-section)
+import sw_meander as MD          # noqa: E402  (base profiles for the y-z cross-section)
 
 
 def cfg_from_attrs(a):

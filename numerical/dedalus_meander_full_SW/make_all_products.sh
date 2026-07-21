@@ -9,16 +9,19 @@ set -euo pipefail
 cd "$(dirname "$0")"
 MM="micromamba run -n dedalus env OMP_NUM_THREADS=1"
 
-echo "=== 1/4  results table (generated from the HDF5, never typed) ==="
+echo "=== 1/5  diagnostics: derive disp_* and diag_* from the raw fields ==="
+(cd postprocessing && $MM python analysis.py)
+
+echo "=== 2/5  results table (generated from the HDF5, never typed) ==="
 $MM python derivations/make_results_table.py
 
-echo "=== 2/4  dispersion figure ==="
+echo "=== 3/5  dispersion figure ==="
 (cd postprocessing && $MM python 01_dispersion.py)
 
-echo "=== 3/4  absolute-Eulerian momentum-flux movies (one per configuration) ==="
+echo "=== 4/5  absolute-Eulerian momentum-flux movies (one per configuration) ==="
 (cd postprocessing && $MM python 02_eulerian_momflux.py)
 
-echo "=== 4/4  derivation PDF (twice: \\ref/\\label need a second pass) ==="
+echo "=== 5/5  derivation PDF (twice: \\ref/\\label need a second pass) ==="
 cd derivations
 lualatex -interaction=nonstopmode -halt-on-error sw_sn_meander.tex > /tmp/tex_pass1.log 2>&1
 lualatex -interaction=nonstopmode -halt-on-error sw_sn_meander.tex > /tmp/tex_pass2.log 2>&1

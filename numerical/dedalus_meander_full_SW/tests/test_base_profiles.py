@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Base-state sanity checks for sw_sn_driver (kept OUT of the shared driver).
+"""Base-state sanity checks for sw_meander (kept OUT of the shared driver).
 
     micromamba run -n dedalus env OMP_NUM_THREADS=1 python tests/test_base_profiles.py
 
@@ -17,7 +17,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import sw_sn_driver as M
+import sw_meander as M
 
 
 def test_base_profiles():

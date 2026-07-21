@@ -307,7 +307,7 @@ def render(path):
 
 
 def MD_bed(cfg, n):
-    return PP.MD.bed_depth(0.0, n, cfg)
+    return PP.MD.bed_depth(n, cfg)      # bed is H(n): no s argument
 
 
 def main():
@@ -318,7 +318,7 @@ def main():
         tags = [os.path.basename(p)[:-3]
                 for p in sorted(glob.glob(os.path.join(PP.OUT_DIR, "run_*.h5")))]
     if not tags:
-        raise SystemExit("no ../outputs/run_*.h5 -- run ../sw_sn_driver.py first")
+        raise SystemExit("no ../outputs/run_*.h5 -- run ../sw_meander.py first")
     for t in tags:
         p = os.path.join(PP.OUT_DIR, t if t.endswith(".h5") else t + ".h5")
         render(p)

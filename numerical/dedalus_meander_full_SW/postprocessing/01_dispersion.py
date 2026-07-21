@@ -28,7 +28,7 @@ KD_LAW = 1.10
 
 runs = sorted(glob.glob(os.path.join(PP.OUT_DIR, "run_*.h5")))
 if not runs:
-    raise SystemExit("no ../outputs/run_*.h5 — run ../sw_sn_driver.py first")
+    raise SystemExit("no ../outputs/run_*.h5 — run ../sw_meander.py first")
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.5, 5.2), dpi=120)
 
