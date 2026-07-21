@@ -9,6 +9,7 @@ Checks the analytic base state before any Dedalus assembly:
   3. metric positivity   sigma = 1 + n Cbar > 0  (no channel folding)
   4. superelevation   outer bank higher, sign follows Cbar
   5. straight limit   Cbar=0  =>  etabar == 0
+  6. run_tag() separates every knob it claims to key on (anti-overwrite)
 """
 import os
 import sys
@@ -56,5 +57,26 @@ def test_base_profiles():
     print("\nALL BASE-PROFILE CHECKS PASSED")
 
 
+def test_run_tag_separates_physics():
+    """Every physical knob must change the filename, or runs overwrite each other.
+
+    This is a regression test: Delta was once absent from run_tag(), so the plug-flow
+    (Delta=0) and reversed-shear (Delta<0) experiments -- the two sharpest runs in the
+    study -- both landed on the SAME file and the second silently destroyed the first.
+    A collision is invisible in the output (you still get N-1 plausible files), so it
+    has to be caught here.
+    """
+    base = dict(M.CONFIG)
+    knobs = dict(cross_amp=base["cross_amp"] + 0.3, Cbar_amp=0.15, Cf=base["Cf"] * 2,
+                 U0=base["U0"] + 0.4, Delta=-base["Delta"])
+    tag0 = M.run_tag(base)
+    for knob, val in knobs.items():
+        tag = M.run_tag(dict(base, **{knob: val}))
+        assert tag != tag0, (f"run_tag() ignores '{knob}': changing it leaves the tag "
+                             f"at {tag0!r}, so two runs would overwrite each other")
+    print(f"6. run_tag separates {', '.join(knobs)}  ({tag0})  OK")
+
+
 if __name__ == "__main__":
     test_base_profiles()
+    test_run_tag_separates_physics()

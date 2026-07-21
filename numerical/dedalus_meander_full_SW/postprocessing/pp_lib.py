@@ -8,7 +8,6 @@ channel so the two banks bound the flow).
 """
 from __future__ import annotations
 
-import glob
 import os
 
 import numpy as np
@@ -46,18 +45,13 @@ def load_run(path):
     return res
 
 
-def sweep_dispersion(pattern="run_*.h5"):
-    """Collect (k, sigma, c, Froude, Cbar) from a directory of sweep runs."""
-    rows = []
-    for p in sorted(glob.glob(os.path.join(OUT_DIR, pattern))):
-        with h5py.File(p, "r") as h:
-            a = h.attrs
-            cb = (a["A_bank"] * a["kmeander"] ** 2 if a["Cbar_amp"] in ("None", b"None")
-                  else float(a["Cbar_amp"]))
-            rows.append(dict(k=float(a["kstar"]), sigma=float(a["sigma_meas"]),
-                             c=float(a["c_meas"]), F=float(a["Froude"]),
-                             Cbar=float(cb)))
-    return rows
+# NOTE: a sweep_dispersion() used to live here, collecting one (k, sigma, c) per run
+# from the attr `kstar` -- i.e. from "which wavelength this run perturbed".  With
+# broadband seeding that attr no longer identifies anything: every run excites every
+# k, and the dispersion relation lives in the per-mode disp_* datasets written by the
+# driver (see 01_dispersion.py).  Keeping the old helper around would let a caller
+# silently rebuild a one-point-per-run "dispersion relation" that is not one, so it is
+# deleted rather than deprecated.
 
 
 # --------------------------------------------------------------------------- #
@@ -83,27 +77,12 @@ def centerline(s, cbar_of_s, zc=None):
     return xc, yc, nx, ny
 
 
-def labframe_mesh(res, gain=1.0):
-    """(X,Y) lab coords (Ns,Nn) for the (s,n) grid using the BASE curvature.
-
-    gain scales the display of the perturbation centerline zc (visual).
-    Returns a function frame(i) -> (X, Y, zc_i) for time index i.
-    """
-    s, n = res["s"], res["n"]
-    a = res["attrs"]
-    km = float(a["kmeander"])
-    cb_amp = (float(a["A_bank"]) * km ** 2 if a["Cbar_amp"] in ("None", b"None")
-              else float(a["Cbar_amp"]))
-    cbar_s = cb_amp * np.cos(km * s)
-
-    def frame(i):
-        zc_i = gain * res["zc"][i]
-        xc, yc, nx, ny = centerline(s, cbar_s, zc=zc_i)
-        X = xc[:, None] + n[None, :] * nx[:, None]
-        Y = yc[:, None] + n[None, :] * ny[:, None]
-        return X, Y, res["zc"][i]
-
-    return frame
+# NOTE: a labframe_mesh(res, gain) used to live here.  Its `gain` argument scaled the
+# bank displacement for display only -- exactly the amplification that makes two movies
+# of the SAME evolution look like different physics.  The absolute-Eulerian convention
+# (one gain, chosen once from linear validity, applied to every field and frame alike)
+# is implemented in 02_eulerian_momflux.py; a helper whose signature invites a
+# per-movie display gain works against it, so it is deleted.
 
 
 def momflux(res, i):

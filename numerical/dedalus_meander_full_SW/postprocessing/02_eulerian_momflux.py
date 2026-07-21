@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
-"""02: fully-Eulerian momentum-flux movies (one per init bank wavelength).
+"""02: fully-Eulerian momentum-flux movies -- one per PHYSICAL configuration.
 
 Maps the (s,n) fields to the LAB-frame meandering channel (banks bound the flow).
 6 panels: u_s', u_n', momentum flux u_s'u_n', free surface eta', a y-z (n-z)
 cross-section (Ikeda Fig-2b: bed H(n)+jet+banks+free surface), and growth stats.
 
-- colours are PER-FRAME normalised (with a small floor) so the pattern is visible
-  throughout (it does not stay faint while the mode grows);
-- the meander/bank displacement is amplified for display, so the BANK EROSION
-  (the meander migrating/growing) is visible; the true growth is the x-gain counter;
-- FREE aspect ratio (each planform panel fills its box).
+ABSOLUTE-EULERIAN convention -- the two display tricks are deliberately ABSENT:
 
-    python 02_eulerian_momflux.py [run_tag ...]      # default: a spread of wavelengths
+- ONE fixed colour scale per field for the whole movie (NO per-frame normalisation),
+  so the colours genuinely build up as e^{sigma t} and two movies are comparable;
+- ONE fixed overall gain G for the whole movie (NO bank amplification).  The model
+  is linear so the overall amplitude is a free constant; G is chosen once, from
+  LINEAR VALIDITY (final |u'| = 15% of the base jet), and applied to every frame
+  and every field alike;
+- ONE fixed view (the whole river at final extent) for every frame, so the frame
+  really is Eulerian and the small early waveform is not zoomed away.
+
+The only per-frame normalisation anywhere is the small centreline-SHAPE inset, which
+is labelled as such -- it exists so the waveform stays readable while the absolute
+amplitude is still tiny.
+
+The perturbation is broadband (every k at once), so a movie is titled by its physics
+(bed H, bank sinuosity, C_f, U_0, Delta), never by "which wavelength was perturbed";
+the fastest CONVERGED mode is reported in the stats panel.
+
+    python 02_eulerian_momflux.py [run_tag ...]      # default: every run on disk
 """
 import glob
 import os
@@ -45,10 +58,32 @@ def render(path):
     ts = res["t"]
     nfr = len(ts)
     b = float(a["b"])
-    k = float(a["kstar"]); F = float(a["Froude"])
-    Cb = (float(a["A_bank"]) * float(a["kmeander"]) ** 2
-          if a["Cbar_amp"] in ("None", b"None") else float(a["Cbar_amp"]))
+    F = float(a["Froude"]); U0 = float(a["U0"]); Cf = float(a["Cf"])
+    Dl = float(a["Delta"])          # jet excess = the cross-channel shear (channel-beta)
+    Cb = float(a["bank_sinuosity"])
+    bed = "flat" if float(a["cross_amp"]) == 0 else f"cross {float(a['cross_amp']):.2g}"
     km = float(a["kmeander"])
+    # the perturbation is broadband; report the fastest CONVERGED mode instead of
+    # "the" wavelength (there is no single seeded wavelength any more)
+    if "disp_k" in res and np.any(res["disp_converged"] > 0):
+        ok = res["disp_converged"] > 0
+        i = int(np.argmax(np.where(ok, res["disp_sigma"], -np.inf)))
+        kfast, sfast, cfast = (float(res["disp_k"][i]), float(res["disp_sigma"][i]),
+                               float(res["disp_c"][i]))
+    else:
+        kfast = sfast = cfast = float("nan")
+    # the decisive diagnostics belong ON the movie, not only in a log: T_shear is the
+    # ONLY channel by which the mean-flow vorticity gradient can power a free vortical
+    # wave, so its SIGN is what the whole exercise turns on.  div_ratio<<1 says balanced.
+    if "diag_T_shear" in a and "diag_T_bend" in a:
+        Ts, Tb = float(a["diag_T_shear"]), float(a["diag_T_bend"])
+        ratio = Ts / max(abs(Tb), 1e-300)
+        verdict = "mean flow is a SINK" if Ts <= 0 else "mean flow POWERS it"
+        diag_txt = (rf"$T_{{\rm shear}}/|T_{{\rm bend}}|$={ratio:+.2f} ({verdict})"
+                    + (rf"   $\|\delta'\|/\|\zeta'\|$={float(a['diag_div_ratio']):.3g}"
+                       if "diag_div_ratio" in a else ""))
+    else:
+        diag_txt = ""
     zc_final = max(np.max(np.abs(res["zc"][-1])), 1e-30)
     # ABSOLUTE-EULERIAN scaling.  The model is LINEAR, so the overall amplitude is a
     # free constant (= the seed choice).  We fix it ONCE, then draw EVERY frame with
@@ -62,7 +97,6 @@ def render(path):
     LIN_FRAC = 0.15
     us_final = max(np.percentile(np.abs(res["us"][-1]), 99.5), 1e-30)
     G = LIN_FRAC * float(np.max(np.abs(PP.MD.ubar_s(n, cfg)))) / us_final
-    zc_disp = G * zc_final                                 # resulting meander, in b
 
     cbar_s = Cb * np.cos(km * s)
     momf = np.array([PP.momflux(res, i) for i in range(nfr)])
@@ -109,7 +143,16 @@ def render(path):
     def centerline_xy(i):
         return PP.centerline(s, cbar_s, zc=G * res["zc"][i])
 
-    Xf, Yf, _, _ = centerline_xy(nfr - 1)
+    # FIXED view for every frame = the WHOLE river at its largest extent (final
+    # frame).  Without this, ax.clear() lets matplotlib autoscale per frame, so the
+    # view zooms as the meander grows -- which is not an Eulerian (fixed-frame) view
+    # and makes the small early waveform unreadable.
+    xcf, ycf, nxf, nyf = centerline_xy(nfr - 1)
+    Xf = xcf[:, None] + n[None, :] * nxf[:, None]
+    Yf = ycf[:, None] + n[None, :] * nyf[:, None]
+    pad = 0.10 * (Yf.max() - Yf.min())
+    XLIM = (Xf.min(), Xf.max())                        # the full along-channel reach
+    YLIM = (Yf.min() - pad, Yf.max() + pad)
 
     def draw(i):
         xc, yc, nx, ny = centerline_xy(i)
@@ -124,8 +167,9 @@ def render(path):
             ax.plot(X[:, -1], Y[:, -1], "k", lw=1.4)
             ax.set_title(title, fontsize=10)
             ax.set_xticks([]); ax.set_yticks([])
-            # FREE aspect: fill the box (do NOT set_aspect('equal'))
-            ax.margins(x=0.01, y=0.06)
+            # FIXED range, identical every frame = the whole river (no per-frame
+            # autoscale); FREE aspect so it fills the box.
+            ax.set_xlim(*XLIM); ax.set_ylim(*YLIM)
 
         # ---- y-z cross-section at the crest (max |zc|) ------------------------
         ic = int(np.argmax(np.abs(res["zc"][i])))
@@ -150,24 +194,36 @@ def render(path):
         # ---- growth stats ----------------------------------------------------
         axst.clear(); axst.axis("off")
         gain = zc_amp[i] / max(zc_amp[0], 1e-30)
-        axst.plot([], [])
-        ax2 = axst.inset_axes([0.12, 0.12, 0.8, 0.5])
+        axst.text(0.02, 0.99,
+                  f"bed $H$: {bed}    bank sinuosity $\\bar C$={Cb:.3g}\n"
+                  f"$C_f$={Cf:.3g}    $U_0$={U0:.2g}    $\\Delta$={Dl:+.2g}"
+                  f" (shear)    $F$={F:g}\n"
+                  f"fastest mode: $k$={kfast:.2f}, $\\sigma$={sfast:+.3f}, $c$={cfast:+.2f}\n"
+                  f"{diag_txt}\n"
+                  f"$t$={ts[i]:.1f}    centreline $\\times{gain:.2g}$ (true)",
+                  va="top", ha="left", fontsize=8.5, transform=axst.transAxes)
+        # centreline WAVEFORM (shape only, per-frame normalised) -- this is where the
+        # prescribed initial cos(k s) and its downstream march stay visible even while
+        # the absolute amplitude is still ~1/15 of final in the panels above.
+        ax3 = axst.inset_axes([0.14, 0.60, 0.78, 0.20])
+        zc_i = res["zc"][i]
+        ax3.plot(s, zc_i / max(np.max(np.abs(zc_i)), 1e-30), color="navy", lw=1.4)
+        ax3.set_xlim(s[0], s[-1]); ax3.set_ylim(-1.3, 1.3)
+        ax3.set_yticks([]); ax3.tick_params(labelsize=7)
+        ax3.set_title(r"centreline $\zeta_c(s)$ — SHAPE only (per-frame norm)", fontsize=7)
+        ax3.grid(alpha=0.3)
+        # true growth (absolute)
+        ax2 = axst.inset_axes([0.14, 0.10, 0.78, 0.32])
         ax2.semilogy(ts[:i + 1], zc_amp[:i + 1] / max(zc_amp[0], 1e-30), color="crimson", lw=2)
         ax2.set_xlim(ts[0], ts[-1]); ax2.set_ylim(0.5, max(2.0, zc_amp.max() / max(zc_amp[0], 1e-30) * 1.3))
-        ax2.set_xlabel("t"); ax2.set_ylabel(r"meander $\times$")
-        ax2.grid(alpha=0.3, which="both")
-        axst.text(0.02, 0.97,
-                  f"$k={k:g}$   $F={F:g}$   $\\bar C={Cb:.2g}$\n"
-                  f"$\\sigma_{{\\rm meas}}={float(a['sigma_meas']):+.3f}$   "
-                  f"$c={float(a['c_meas']):+.2f}$\n"
-                  f"$t={ts[i]:.1f}$   meander $\\times{gain:.2g}$",
-                  va="top", ha="left", fontsize=10, transform=axst.transAxes)
+        ax2.set_xlabel("t", fontsize=8); ax2.set_ylabel(r"meander $\times$", fontsize=8)
+        ax2.tick_params(labelsize=7); ax2.grid(alpha=0.3, which="both")
 
         fig.suptitle(
-            rf"SW meander $(s,n)\!\to$lab | $k={k:g}$ ($\lambda={2*np.pi/k:.1f}$), "
-            rf"$F={F:g}$, $\bar C={Cb:.2g}$ | ABSOLUTE Eulerian: ONE fixed scale, "
-            rf"true $e^{{\sigma t}}$ | $|u'|/\bar U={LIN_FRAC:g}$ "
-            rf"$\Rightarrow$ meander ${zc_disp:.2f}b$",
+            rf"SW meander $(s,n)\!\to$lab | bed $H$: {bed}, bank $\bar C$={Cb:.3g}, "
+            rf"$C_f$={Cf:.3g}, $U_0$={U0:.2g}, $\Delta$={Dl:+.2g} "
+            rf"| BROADBAND perturbation (all $k$ at once) "
+            rf"| ABSOLUTE Eulerian: one fixed scale, true $e^{{\sigma t}}$",
             fontsize=10)
         return []
 
@@ -178,7 +234,9 @@ def render(path):
     draw(nfr - 1)
     fig.savefig(os.path.join(PP.FIG_DIR, f"momflux_eulerian_{tag}_preview.png"))
     plt.close(fig)
-    print(f"wrote momflux_eulerian_{tag}.mp4  (k={k}, {nfr} frames)")
+    print(f"wrote momflux_eulerian_{tag}.mp4  "
+          f"(fastest converged k={kfast:.2f}, sigma={sfast:+.4f}, "
+          f"{len(frames_idx)}/{nfr} frames, display gain G={G:.3g})")
 
 
 def MD_bed(cfg, n):
@@ -189,18 +247,11 @@ def main():
     args = sys.argv[1:]
     if args:
         tags = args
-    else:
-        # a spread of init bank wavelengths (from the F=0.6 sweep, in the growth band)
-        tags = []
-        for kt in ("k0p44", "k0p63", "k0p82", "k1p01"):
-            g = sorted(glob.glob(os.path.join(PP.OUT_DIR, f"run_{kt}_F0p60*.h5")))
-            if g:
-                tags.append(os.path.basename(g[0])[:-3])
-        if not tags:
-            g = sorted(glob.glob(os.path.join(PP.OUT_DIR, "run_*.h5")))
-            tags = [os.path.basename(g[0])[:-3]] if g else []
+    else:                                   # every configuration on disk
+        tags = [os.path.basename(p)[:-3]
+                for p in sorted(glob.glob(os.path.join(PP.OUT_DIR, "run_*.h5")))]
     if not tags:
-        raise SystemExit("no ../outputs/run_*.h5 -- run the driver/sweep first")
+        raise SystemExit("no ../outputs/run_*.h5 -- run ../sw_sn_driver.py first")
     for t in tags:
         p = os.path.join(PP.OUT_DIR, t if t.endswith(".h5") else t + ".h5")
         render(p)
