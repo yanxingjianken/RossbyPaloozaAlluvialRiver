@@ -20,9 +20,10 @@ The only per-frame normalisation anywhere is the small centreline-SHAPE inset, w
 is labelled as such -- it exists so the waveform stays readable while the absolute
 amplitude is still tiny.
 
-The perturbation is broadband (every k at once), so a movie is titled by its physics
-(bed H, bank sinuosity, C_f, U_0, Delta), never by "which wavelength was perturbed";
-the fastest CONVERGED mode is reported in the stats panel.
+The perturbation is a single localised bump released upstream -- a drop of ink.  Being
+localised it is automatically broadband (a narrow bump contains every wavenumber), so a
+movie is titled by its physics (bed H, bank sinuosity, C_f, U_0, Delta) and never by
+"which wavelength was perturbed"; the fastest CONVERGED mode is in the stats panel.
 
     python 02_eulerian_momflux.py [run_tag ...]      # default: every run on disk
 """
@@ -64,8 +65,8 @@ def render(path):
     Cb = float(a["bank_sinuosity"])
     bed = "flat" if float(a["cross_amp"]) == 0 else f"cross {float(a['cross_amp']):.2g}"
     km = float(a["kmeander"])
-    # the perturbation is broadband; report the fastest CONVERGED mode instead of
-    # "the" wavelength (there is no single seeded wavelength any more)
+    # the seed is one localised bump, hence broadband: report the fastest CONVERGED mode
+    # rather than "the" wavelength (there is no single seeded wavelength)
     if "disp_k" in res and np.any(res["disp_converged"] > 0):
         ok = res["disp_converged"] > 0
         i = int(np.argmax(np.where(ok, res["disp_sigma"], -np.inf)))
@@ -288,7 +289,7 @@ def render(path):
         fig.suptitle(
             rf"shallow-water meander $(s,n)\!\to$ lab frame  |  bed $H$: {bed}, "
             rf"bank $\bar C$={Cb:.3g}, $C_f$={Cf:.3g}, $U_0$={U0:.2g}, "
-            rf"$\Delta$={Dl:+.2g}  |  BROADBAND perturbation (every $k$ at once)"
+            rf"$\Delta$={Dl:+.2g}  |  perturbation: ONE drop of ink released upstream"
             "\n"
             rf"row 1 = TOTAL flow (base $+$ perturbation), fixed linear scale   ·   "
             rf"rows 2–3 = perturbation only, fixed SYMLOG over {DECADES:.1f} decades"
