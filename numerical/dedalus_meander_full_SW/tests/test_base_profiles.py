@@ -44,7 +44,7 @@ def test_base_profiles():
     print(f"3. metric: min(1+n*Cbar)={sig.min():.3f} > 0  OK")
 
     # 4/5. superelevation, and its straight-channel limit
-    cfg_bend = dict(cfg, Cbar_amp=0.15)
+    cfg_bend = dict(cfg, Cbar_amp=0.15 / cfg["b"])   # Cbar*b = 0.15
     eb = M.etabar(s, n, cfg_bend)
     ic = int(np.argmax(np.abs(M.cbar(s, cfg_bend))))
     tilt = eb[ic, -1] - eb[ic, 0]
@@ -67,7 +67,7 @@ def test_run_tag_separates_physics():
     has to be caught here.
     """
     base = dict(M.CONFIG)
-    knobs = dict(cross_amp=base["cross_amp"] + 0.3, Cbar_amp=0.15, Cf=base["Cf"] * 2,
+    knobs = dict(cross_amp=base["cross_amp"] + 0.3, Cbar_amp=0.15 / base["b"], Cf=base["Cf"] * 2,
                  U0=base["U0"] + 0.4, Delta=-base["Delta"])
     tag0 = M.run_tag(base)
     for knob, val in knobs.items():

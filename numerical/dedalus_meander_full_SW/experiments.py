@@ -38,39 +38,37 @@ import sw_meander as M
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-# every run shares one domain so the mode grids are identical and comparable
-# Ns=128, not 64.  sigma(k) is ALREADY converged at Ns=64 (it agrees with Ns=128 to
-# 0.0-0.1% across the whole band, and the peak sits at k=1.80 in both), so this is not
-# a correctness fix -- it is a legibility one.  The growth curve is nearly flat over
-# k=1.5-2.3, so the field stays a superposition of that whole band; at Ns=64 the band
-# lies at 62-96% of the grid Nyquist and renders as one-pixel stripes that read as
-# numerical noise.  At Ns=128 the same physical modes sit at ~37% of Nyquist and look
-# like the waves they are.
-COMMON = dict(Ls=4 * 2 * np.pi / 0.30, Ns=128, Nn=96, dt=0.01, t_end=120.0, A0=1e-4)
+# every run shares one domain so the mode grids are identical and comparable.
+# Ns=128 rather than 64 is a LEGIBILITY choice, not a correctness one: sigma(k) agrees
+# between the two to 0.0-0.1% across the whole band.  But the growing band is broad, so
+# the field stays a superposition of ~7 neighbouring modes; at Ns=64 those sit at
+# 62-96% of the grid Nyquist and render as one-pixel stripes that read as numerical
+# noise, whereas at Ns=128 they are ~5 points per wavelength and look like waves.
+COMMON = dict(Ns=128, Nn=96, dt=0.4, t_end=4300.0, A0=0.05)   # SI: s, m
 
 # --- the configurations to compare (edit here) ----------------------------- #
 CONFIGS = [
     ("reference",            dict()),
-    ("bank: straight",       dict(Cbar_amp=0.00)),
-    ("bank: sinuous",        dict(Cbar_amp=0.15)),
+    ("bank: straight",       dict(Cbar_amp=0.0)),
+    ("bank: sinuous",        dict(Cbar_amp=0.15 / M.CONFIG["b"])),   # Cbar*b = 0.15
     ("bed: parabolic H(n)",  dict(cross_amp=0.30)),
-    ("friction: low",        dict(Cf=0.010)),
-    ("friction: high",       dict(Cf=0.100)),
-    ("U0: fast banks",       dict(U0=0.80, Delta=0.20)),
+    ("friction: low",        dict(Cf=0.002)),   # smooth sand bed
+    ("friction: high",       dict(Cf=0.020)),   # vegetated / gravel
+    ("U0: fast banks",       dict(U0=1.20, Delta=0.20)),
     # --- CONFOUNDED pair, kept only as a cautionary record -------------------- #
     # These vary Delta but ALSO raise U0 to 1.0.  U0 is the speed at the BANK, and the
     # erosion law reads u_s there, so they conflate "removed the channel-beta" with
     # "sped up the bank" -- and the confound inverts the answer (they appear to grow
     # FASTER without shear; the matched controls below show the opposite).
-    ("jet: plug, U0 raised (CONFOUNDED)",     dict(U0=1.00, Delta=0.00)),
-    ("jet: reversed, U0 raised (CONFOUNDED)", dict(U0=1.00, Delta=-0.60)),
+    ("jet: plug, U0 raised (CONFOUNDED)",     dict(U0=1.40, Delta=0.00)),
+    ("jet: reversed, U0 raised (CONFOUNDED)", dict(U0=1.40, Delta=-0.60)),
     # --- the DECISIVE controls: bank speed held at the reference value --------- #
     # Ubar_s(n)=U0+Delta(1-n^2/b^2) has only two knobs, so removing Delta MUST change
     # either the bank speed or the centre speed -- there is no perfectly clean control.
     # Since the erosion is driven at the bank, holding U0 fixed is the comparison that
     # isolates the channel-beta, and it is the one to quote.
-    ("CONTROL plug, matched bank speed",     dict(U0=0.40, Delta=0.00)),
-    ("CONTROL reversed, matched bank speed", dict(U0=0.40, Delta=-0.30)),
+    ("CONTROL plug, matched bank speed",     dict(U0=0.80, Delta=0.00)),
+    ("CONTROL reversed, matched bank speed", dict(U0=0.80, Delta=-0.30)),
 ]
 
 

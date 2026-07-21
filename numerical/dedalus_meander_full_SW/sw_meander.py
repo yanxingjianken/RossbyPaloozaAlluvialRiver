@@ -38,51 +38,64 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "outputs")
 
+G_ACCEL = 9.81            # m/s^2 -- everything in this file is SI
+
 CONFIG = dict(
-    # -- base jet: Ub(n) = U0 + Delta*(1 - (n/b)^2) ------------------------------
-    # Parabolic on purpose: d2Ub/dn2 = -2*Delta/b^2 is CONSTANT, so the cross-channel
-    # vorticity gradient d(zeta_bar)/dn = 2*Delta/b^2 is uniform -- the channel analogue
-    # of a planetary beta.  Delta IS that gradient: Delta=0 removes it entirely.
-    # NOTE these two knobs are not independent in effect: the erosion law reads u_s AT
-    # THE BANK, where Ub = U0.  Changing Delta at fixed U0 changes the shear; changing
-    # Delta at fixed CENTRE speed also changes the bank speed and hence the forcing.
-    # Compare runs at matched U0, or the comparison is confounded.
-    U0=0.4,              # speed at the bank edge  (drives erosion)
-    Delta=0.6,           # parabolic excess: centre speed = U0 + Delta;  = the shear
-    b=1.0,               # channel half-width, n in [-b, b]
-    # -- free surface -----------------------------------------------------------
-    Froude=0.5,          # F = Uc/sqrt(g H0);  g_eff = 1/F^2
-    H0=1.0,              # mean still-water depth
-    # -- background meander:  Cbar(s) = Cbar_amp * cos(kmeander * s) ------------
-    A_bank=0.20,         # centreline amplitude of the initial bend train
-    kmeander=0.30,       # its wavenumber (also sets the domain length)
-    Cbar_amp=None,       # override the curvature amplitude directly (None -> A_bank*k^2)
-    n_bends=4,           # whole bends in the periodic domain
-    Ls=None,             # domain length (None -> n_bends * 2pi/kmeander)
-    # -- bed  H(n) = H0*[1 + cross_amp*(1 - (n/b)^2)] ---------------------------
-    cross_amp=0.0,       # parabolic thalweg (0 = flat bed).  An along-channel bed is
-                         # NOT supported: it would make the base flow s-dependent.
-    # -- friction, erodibility, viscosity ---------------------------------------
-    Cf=0.05,             # bottom drag coefficient
-    ECOEF=0.50,          # bank erodibility, E = ECOEF*U0
-    nu=3e-3,             # lateral eddy viscosity (wall closure + short-wave regulariser)
-    # -- the perturbation: ONE drop of ink, upstream ----------------------------
-    # The base state is an exact steady solution, so something must disturb it; the
-    # dynamics are linear, so anything is admissible.  We release a single localised
-    # bump on the centreline and watch the packet grow, disperse and advect.
-    #   zc(s,0) = A0 * exp( -(s - s0)^2 / (2 w^2) )
-    # Being localised, it is automatically broadband -- a narrow bump contains every
-    # wavenumber -- so one run still yields the entire dispersion relation by
-    # demodulating each mode.  A true delta would also excite the grid scale; the finite
-    # width w is what keeps the seeded spectrum smooth.
-    A0=1e-4,             # seed amplitude (irrelevant: the system is linear)
-    seed_s0=0.25,        # release point, as a fraction of the domain length
-    seed_width=1.0,      # bump half-width w, in channel half-widths b
-    # -- numerics ---------------------------------------------------------------
+    # =================== CHANNEL GEOMETRY [m] ==============================
+    # Typical sand-bed meandering river.  The aspect ratio b/H ~ 17 is what puts
+    # this in the regime Ikeda-Parker-Sawai and the bar-theory literature describe.
+    b=50.0,              # half-width [m]      -> river width W = 2b = 100 m
+    H0=3.0,              # mean still-water depth [m]   -> b/H = 17
+    # =================== BASE JET [m/s] ====================================
+    # Ub(n) = U0 + Delta*(1 - (n/b)^2): parabolic on purpose, so d2Ub/dn2 is CONSTANT
+    # and the cross-channel vorticity gradient d(zeta_bar)/dn = 2*Delta/b^2 is uniform
+    # -- the channel analogue of a planetary beta.  Delta IS that gradient; Delta=0
+    # removes it.  NOTE the two are not independent in effect: the erosion law reads
+    # u_s AT THE BANK, where Ub = U0, so compare runs at MATCHED U0 or the comparison
+    # is confounded (this inverted a conclusion once -- see the derivation note).
+    U0=0.8,              # speed at the bank edge [m/s]  (this drives the erosion)
+    Delta=0.6,           # excess at the centre [m/s]    -> centreline 1.4 m/s
+    # =================== BED [m] ===========================================
+    # FLAT bed by default.  H(n) = H0*[1 + cross_amp*(1 - (n/b)^2)] also supports a
+    # parabolic thalweg (deepest mid-channel, like the jet): set e.g. cross_amp=0.30
+    # for a 30% deeper centreline.  An ALONG-channel bed is deliberately NOT wired in:
+    # it would make the base flow s-dependent through discharge conservation.
+    cross_amp=0.0,       # 0 = flat bed;  >0 = parabolic thalweg [-]
+    # =================== BACKGROUND MEANDER ================================
+    # Cbar(s) = Cbar_amp * cos(kmeander * s), curvature in [1/m]
+    kmeander=6.0e-3,     # bend wavenumber [1/m] -> wavelength 1047 m ~ 10.5 W,
+                         #   which is the observed meander scale (Leopold-Wolman)
+    A_bank=10.0,         # centreline amplitude of the initial bend train [m]
+    Cbar_amp=None,       # override the curvature amplitude [1/m] (None -> A_bank*k^2)
+    n_bends=4,           # whole bends in the periodic domain -> reach 4189 m
+    Ls=None,             # domain length [m] (None -> n_bends * 2pi/kmeander)
+    # =================== FRICTION / VISCOSITY ==============================
+    Cf=0.005,            # bottom drag coefficient [-]; sand-bed rivers are 0.002-0.01
+    nu=0.15,             # lateral eddy viscosity [m^2/s].  Physical estimate is
+                         #   alpha*u_*H with u_*=sqrt(Cf)*U ~ 0.1 m/s, H=3 m,
+                         #   alpha~0.1-0.6  ->  0.03-0.18 m^2/s.
+    # =================== BANK EROSION ======================================
+    # dt(zeta_c) = E * 0.5*[u_s(+b) - u_s(-b)]
+    # FIELD erodibility is ~1e-8 m/s (about 0.3 m/yr of bank retreat).  At that value
+    # the instability e-folds in ~2 centuries, which cannot be integrated.  E below is
+    # inflated ~1e7x so the mode develops in an hour of simulated time.  sigma is
+    # LINEAR in E, so a field growth rate is sigma * (1e-8 / E) -- the movies print the
+    # implied bank-migration rate so the inflation is never invisible.
+    E=0.1,               # bank erodibility [m/s]  (field value ~1e-8)
+    # =================== THE PERTURBATION: one drop of ink =================
+    # A single localised bump on the centreline, flow at rest.  Being localised it is
+    # automatically broadband -- a narrow bump contains every wavenumber -- so one run
+    # still yields the whole dispersion relation.  A true delta would also excite the
+    # grid scale; the finite width is what keeps the seeded spectrum smooth.
+    A0=0.05,             # seed amplitude [m] (irrelevant: the system is linear)
+    seed_s0=0.25,        # release point, as a fraction of the reach
+    seed_width=50.0,     # bump half-width [m] (= one channel half-width)
+    # =================== NUMERICS ==========================================
     Ns=128,              # streamwise Fourier modes
     Nn=96,               # cross-channel Chebyshev modes
-    dt=0.01,
-    t_end=120.0,
+    dt=0.4,              # timestep [s]  (all linear terms are implicit, so this is
+                         #   an accuracy choice, not a CFL limit)
+    t_end=4300.0,        # [s] ~ 72 min
     n_out=81,            # snapshots written
     # Stop early once the FASTEST mode has grown this many e-foldings.  Modes further
     # than ~log(1/eps) ~ 36 e-foldings below the leader drown in its FFT round-off and
@@ -95,8 +108,9 @@ CONFIG = dict(
 # --------------------------------------------------------------------------- #
 #  Base state (pure numpy -- inspectable without touching Dedalus)
 # --------------------------------------------------------------------------- #
-def g_eff(cfg):         return 1.0 / cfg["Froude"] ** 2
-def bank_E(cfg):        return cfg["ECOEF"] * cfg["U0"]
+def g_eff(cfg):         return G_ACCEL                  # SI: no 1/F^2 rescaling
+def bank_E(cfg):        return cfg["E"]                 # [m/s], set directly
+def froude(cfg):        return center_speed(cfg) / np.sqrt(G_ACCEL * cfg["H0"])
 def center_speed(cfg):  return cfg["U0"] + cfg["Delta"]
 def ubar_s(n, cfg):     return cfg["U0"] + cfg["Delta"] * (1.0 - (n / cfg["b"]) ** 2)
 def ubar_s_n(n, cfg):   return -2.0 * cfg["Delta"] * n / cfg["b"] ** 2
@@ -145,7 +159,10 @@ def run_tag(cfg):
     seed is a localised bump containing all of them.  Delta must appear: it IS the
     vorticity gradient, so runs differing only in Delta are physically different."""
     bed = "flat" if cfg["cross_amp"] == 0 else f"cross{cfg['cross_amp']:.2f}"
-    return (f"H{bed}_bank{bank_sinuosity(cfg):.3f}_Cf{cfg['Cf']:.3f}"
+    # tag the bank by the DIMENSIONLESS sinuosity Cbar*b (the QGPV note's eps_c, and the
+    # quantity the metric validity condition is stated in), not by the raw curvature in
+    # 1/m -- in SI that is O(1e-4) and would print as 0.000 for every run.
+    return (f"H{bed}_bank{bank_sinuosity(cfg)*cfg['b']:.3f}_Cf{cfg['Cf']:.4f}"
             f"_U{cfg['U0']:.2f}dU{cfg['Delta']:+.2f}").replace(".", "p")
 
 
@@ -267,7 +284,10 @@ def run(cfg=CONFIG):
         for k, v in cfg.items():
             h.attrs[k] = "None" if v is None else v
         h.attrs["Ls"] = st["Ls"]
-        h.attrs["bank_sinuosity"] = bank_sinuosity(cfg)
+        h.attrs["bank_sinuosity"] = bank_sinuosity(cfg) * cfg["b"]   # dimensionless Cbar*b
+        h.attrs["Cbar_1_per_m"] = bank_sinuosity(cfg)                # the raw curvature
+        h.attrs["Froude"] = froude(cfg)          # DERIVED in SI, not an input any more
+        h.attrs["units"] = "SI: m, s, m/s; g=9.81 m/s^2"
         h.attrs["tag"] = run_tag(cfg)
     print(f"wrote outputs/run_{run_tag(cfg)}.h5  ({len(rec['t'])} snapshots)")
     return path

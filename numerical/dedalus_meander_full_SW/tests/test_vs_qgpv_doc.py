@@ -39,7 +39,7 @@ def check(name, got, want, tol, note=""):
 
 
 def main():
-    cfg = dict(M.CONFIG, Cbar_amp=0.15)            # a genuinely curved channel
+    cfg = dict(M.CONFIG, Cbar_amp=0.15 / M.CONFIG["b"])   # dimensionless Cbar*b = 0.15            # a genuinely curved channel
     b, kmr = cfg["b"], cfg["kmeander"]
     s = np.linspace(0.0, M.domain_length(cfg), 2001)
     n = np.linspace(-b, b, 41)
@@ -92,7 +92,7 @@ def main():
     print(f"  our claim: d(zeta_bar)/dn = -U_nn = {-M.ubar_s_nn(cfg):+.4f}, CONSTANT")
     ref = abs(M.ubar_s_nn(cfg))
     for label, amp in (("default (all CONTROL runs)", M.bank_sinuosity(M.CONFIG)),
-                       ("most sinuous run", 0.15)):
+                       ("most sinuous run", 0.15 / cfg["b"])):
         c2 = dict(cfg, Cbar_amp=amp)
         kap = -M.cbar(s, c2)[:, None]
         sg = M.sigma_metric(S, N, c2)

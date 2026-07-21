@@ -143,9 +143,9 @@ def render(path):
 
     # TOTAL panels: diverging about the BASE value is meaningless, so use a sequential
     # map on a fixed linear range covering base and final.
-    tot_panels = [("tus", r"TOTAL $\bar U_s+u_s'$", tot_us, "viridis"),
-                  ("tspd", r"TOTAL speed $|\mathbf{u}|$", tot_spd, "magma"),
-                  ("teta", r"TOTAL surface $\bar\eta+\eta'$", tot_eta, "cividis")]
+    tot_panels = [("tus", r"TOTAL $\bar U_s+u_s'$  [m/s]", tot_us, "viridis"),
+                  ("tspd", r"TOTAL speed $|\mathbf{u}|$  [m/s]", tot_spd, "magma"),
+                  ("teta", r"TOTAL surface $\bar\eta+\eta'$  [m]", tot_eta, "cividis")]
     tot_lims = {k: (float(np.min(f)), float(np.max(f))) for k, _t, f, _c in tot_panels}
 
     # PERTURBATION panels.  These grow as e^{sigma t} over many e-foldings, so a fixed
@@ -154,10 +154,10 @@ def render(path):
     # the whole movie (no per-frame renormalisation) but make it SYMLOG, so several
     # decades of growth are visible at once and the early broadband transient -- the
     # only part where the SHAPE actually changes -- is finally on screen.
-    pert_panels = [("us", r"$u_s'$", res["us"], "RdBu_r"),
-                   ("un", r"$u_n'$", res["un"], "RdBu_r"),
-                   ("uv", r"momentum flux $u_s'u_n'$", momf, "RdBu_r"),
-                   ("eta", r"$\eta'$ (free surface)", res["eta"], "PuOr_r")]
+    pert_panels = [("us", r"$u_s'$  [m/s]", res["us"], "RdBu_r"),
+                   ("un", r"$u_n'$  [m/s]", res["un"], "RdBu_r"),
+                   ("uv", r"momentum flux $u_s'u_n'$  [m$^2$/s$^2$]", momf, "RdBu_r"),
+                   ("eta", r"$\eta'$ free surface  [m]", res["eta"], "PuOr_r")]
     vlims = {key: _fixed_vlim(fld) for key, _t, fld, _c in pert_panels}
     # How many decades the symlog must span is a property of THIS run, not a constant:
     # it has to cover the run's own amplitude gain, or the early frames fall inside the
@@ -204,7 +204,7 @@ def render(path):
     u_hi = float(np.max(Ubn / Hn) + abs(G) * np.percentile(np.abs(res["us"][-1]), 99.5) / Hn.min())
     smc = plt.cm.ScalarMappable(norm=plt.Normalize(u_lo, u_hi), cmap="viridis")
     smc.set_array([])
-    fig.colorbar(smc, ax=axc, fraction=0.05, pad=0.02, label=r"$\bar u_s/h$ (ONE fixed scale)")
+    fig.colorbar(smc, ax=axc, fraction=0.05, pad=0.02, label=r"$\bar u_s/h$  [1/s]")
 
     def centerline_xy(i):
         return PP.centerline(s, cbar_s, zc=G * res["zc"][i])
@@ -258,7 +258,7 @@ def render(path):
         axc.plot([-b, -b], [-Hn[0], surf[0]], color="k", lw=3)
         axc.plot([b, b], [-Hn[-1], surf[-1]], color="k", lw=3)
         axc.set_xlim(-1.35 * b, 1.35 * b); axc.set_ylim(zg.min(), zg.max())
-        axc.set_xlabel(r"cross-channel $n$"); axc.set_ylabel(r"depth $z$")
+        axc.set_xlabel(r"cross-channel $n$  [m]"); axc.set_ylabel(r"depth $z$  [m]")
         axc.set_title(r"$y$-$z$ cross-section (bed+jet+banks+$\eta$)", fontsize=9)
 
         # ---- growth stats ----------------------------------------------------
@@ -285,7 +285,7 @@ def render(path):
         ax3.plot(s, zc_i / max(np.max(np.abs(zc_i)), 1e-30), color="navy", lw=1.4)
         ax3.set_xlim(s[0], s[-1]); ax3.set_ylim(-1.3, 1.3)
         ax3.set_yticks([]); ax3.tick_params(labelsize=7)
-        ax3.set_xlabel(r"along-channel $s$", fontsize=7, labelpad=1)
+        ax3.set_xlabel(r"along-channel $s$  [m]", fontsize=7, labelpad=1)
         ax3.set_title(r"BLUE: meander shape $\zeta_c(s)$ — drift downstream $=c$ (Im part)",
                       fontsize=7)
         ax3.grid(alpha=0.3)
@@ -302,7 +302,7 @@ def render(path):
                          alpha=0.7, label=rf"$e^{{\sigma t}},\ \sigma$={sfast:+.3f}")
             ax2.legend(fontsize=6, loc="upper left", framealpha=0.6)
         ax2.set_xlim(ts[0], ts[-1]); ax2.set_ylim(0.5, max(2.0, gains.max() * 1.3))
-        ax2.set_xlabel("time $t$", fontsize=8)
+        ax2.set_xlabel("time $t$  [s]", fontsize=8)
         ax2.set_ylabel(r"$|\zeta_c|\times$", fontsize=8)
         ax2.set_title(r"RED: amplitude vs $t$ (log) — SLOPE $=\sigma$ (Re part)", fontsize=7)
         ax2.tick_params(labelsize=7); ax2.grid(alpha=0.3, which="both")
