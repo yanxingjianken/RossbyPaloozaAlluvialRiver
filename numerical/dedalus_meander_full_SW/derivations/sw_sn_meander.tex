@@ -140,15 +140,18 @@ The only place $g$ survives is the pressure gradient, where it appears as
 \end{equation}
 so the non-dimensional gravity-wave speed is $\sqrt{g_{\rm eff}H_0}=1/F$.
 
-\paragraph{Why $F$ must be specified, and why one value proves nothing.}
+\paragraph{Why $F$ must be specified --- and why sweeping it settles nothing.}
 $F$ is an \emph{input} (a property of the river), exactly like a Reynolds number:
 without it the system \eqref{eq:cont}--\eqref{eq:nmom} is not defined. At any $F$
 \emph{both} families exist --- gravity waves at speed $1/F$ and the vortical
-branch at $O(U)$. Which one the bank couples to is decided by \emph{measurement}:
-compare $c_{\rm meander}$ with $1/F$, and above all \emph{vary} $F$. If the meander
-rode the gravity branch, tripling $1/F$ would move $\sigma,c$. It does not
-(\code{sweep\_dispersion.py} $\to$ \code{fig01}), which is the evidence that the
-meander is the vortical/Rossby wave.
+branch at $O(U)$. It is tempting to identify the meander by varying $F$ and noting
+that $\sigma$ and $c$ do not move. That inference is \textbf{invalid}, and we do not
+make it: as \S\ref{sec:notcontain}(iii) shows, writing $P\equiv g\eta$ leaves the
+momentum equations $F$-free, so $F$ survives only as $F^{2}$ on the continuity
+time-derivative --- a pure divergence parameter. \emph{Any} slow balanced mode is
+$F$-insensitive by scaling, so the observed insensitivity confirms the rigid-lid
+reduction rather than identifying a wave family. The question is settled instead by
+the energetics of \S\ref{sec:classify}, not by a Froude sweep.
 
 % ===================================================================
 \section{The base state}
@@ -171,6 +174,15 @@ This constant is the load-bearing property. From \eqref{eq:vort} with $\un=0$ an
   =\text{constant}\;}
   \label{eq:beta}
 \end{equation}
+--- exactly constant for a \emph{straight} channel. At finite curvature the exact
+gradient carries two further terms, $\bar q_n=-\dn^2\Us+\kappa\,\dn\Us/\sigma
++\kappa^{2}\Us/\sigma^{2}$ with $\kappa=-\bar C$ (verified against an independently
+derived channel-following QGPV note in \code{tests/test\_vs\_qgpv\_doc.py}). At the bank
+sinuosity used by the runs that carry the conclusions these add $1.8\%$; at the most
+sinuous run in the study, $16.6\%$. One consequence matters for \S\ref{sec:results}:
+setting $\Delta=0$ leaves the $\kappa^{2}\Us/\sigma^{2}$ term, so it removes the
+gradient only to $O(\kappa^{2}\Us)$ --- a residual of $0.011\%$ of the sheared gradient
+at the sinuosity the controls use, and therefore negligible there, but not literally zero.
 --- a uniform cross-channel gradient of background vorticity, which is why the jet is
 taken parabolic rather than, say, sinusoidal. It is tempting to call this a channel
 $\beta$ and conclude that a \emph{vortical (Rossby-type) wave} is thereby possible;
@@ -224,6 +236,7 @@ an implicit steady forcing; it cancels from the perturbation equations below.
 
 % ===================================================================
 \section{Linearisation}
+\label{sec:lin}
 
 Write $\us=\Us+\us'$, $\un=\un'$, $\eta=\bar\eta+\eta'$, $h=\bar h+\eta'$,
 $C=\bar C+C'$, and drop products of primes.
@@ -399,7 +412,7 @@ is the meander instability. Its growth rate is what the IVP measures.
 \section{Seeding, and why the seed must be a domain mode}
 \label{sec:seed}
 
-The base state is an exact steady solution: started there, nothing ever happens.
+The base state is steady \emph{by construction of the forcing}: started there, nothing ever happens. (It is not an unforced exact solution --- when $\bar C$ varies along $s$ the base $s$-momentum retains $-(g/\sigma)\partial_s\bar\eta\neq0$, the shallow-water analogue of the $\kappa_sU^2/h^3$ imbalance derived in the QGPV note. As in \S\ref{sec:lin}, that residual is taken to be balanced by an implicit mean forcing which cancels from the perturbation equations.)
 Stability analysis therefore \emph{requires} a perturbation, and its growth rate is
 the answer. Because the dynamics are linear, \emph{any} perturbation is admissible.
 

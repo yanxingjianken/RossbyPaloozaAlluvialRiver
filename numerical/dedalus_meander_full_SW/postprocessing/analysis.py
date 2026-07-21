@@ -144,12 +144,22 @@ def classify_mode(us, un, eta, zc, s, n, sig, cfg):
     hb = MD.bed_depth(n, cfg)[None, :] * np.ones_like(us)
     Ub = MD.ubar_s(n, cfg)[None, :] * np.ones_like(us)
     Ub_n = MD.ubar_s_n(n, cfg)[None, :] * np.ones_like(us)
-    zbar = -np.gradient(sig * Ub, n, axis=1) / sig      # base state: smooth, analytic
+    # Base vorticity ANALYTICALLY, not by differencing.  zeta_bar = -(1/sigma)d_n(sigma U)
+    # expands exactly to -U_n - C*U/sigma (= the QGPV note's Eq. 42, -U_n + kappa U/h,
+    # under C = -kappa).  Differencing it instead cost first-order accuracy AT THE WALLS
+    # -- np.gradient defaults to edge_order=1 -- which is precisely where the erosion law
+    # samples the flow.  Verified in tests/test_vs_qgpv_doc.py.
+    Cb2d = MD.cbar(s, cfg)[:, None] * np.ones_like(us)      # C(s), in closed form
+    zbar = -Ub_n - Cb2d * Ub / sig
     q = zeta / hb - zbar * eta / hb ** 2
 
     L2 = lambda A: float(np.sqrt(np.sum(A ** 2 * sig)))
     unorm = float(np.sqrt(np.sum((us ** 2 + un ** 2) * sig)))
-    zc_ss = np.gradient(np.gradient(zc, s), s)[:, None] * np.ones_like(us)
+    # zc is PERIODIC in s, so difference it spectrally: np.gradient would apply a
+    # one-sided formula at s=0 and s=Ls, wrecking exactly the two points that are
+    # actually neighbours.  d_ss(zc) sets T_bend, the denominator of the headline ratio.
+    kx = 2 * np.pi * np.fft.rfftfreq(len(s), d=(s[1] - s[0]))
+    zc_ss = np.fft.irfft(-(kx ** 2) * np.fft.rfft(zc), n=len(s))[:, None] * np.ones_like(us)
     T_bend = float(-np.sum(un * Ub ** 2 * zc_ss * sig))
     T_shear = float(-np.sum(us * un * Ub_n * sig))
     return dict(div_ratio=L2(div) / max(L2(zeta), 1e-300),
