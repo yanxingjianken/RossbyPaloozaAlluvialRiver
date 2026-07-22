@@ -41,15 +41,19 @@ T = b/(U0+Delta).  The deck's own two statements pin it exactly.  Then
     d_t zeta2' + d_x zeta2' + 2 D d_x psi2' + gamma zeta2' = 0
     d_t psi1' = E (psi2' - psi1'),   d_t psi3' = E (psi2' - psi3')
 
-Eliminating d_t psi1' and d_t psi3' from d_t zeta2' gives three constant-coefficient
-linear PDEs in x, which is what Dedalus integrates below.  Substituting a single mode
-reproduces the deck's det M = 0 exactly (asserted in postprocessing/03_verify.py).
+These three constant-coefficient linear PDEs in x are what Dedalus integrates below,
+written in exactly that form -- zeta2' is a linear combination of the state, so dt(zeta2)
+needs no hand-elimination.  Substituting a single mode reproduces the deck's det M = 0
+(asserted in postprocessing/03_verify.py, which agrees to seven decimals).
 
 WHAT IS *NOT* FROM THE DECK  [NOT IN DECK]
 ------------------------------------------
 river.pdf contains no time integration at all -- all 21 pages are normal-mode or
-steady-state.  So the initial condition, the periodic domain, n_wave, dt, t_end and
-Dedalus itself are this package's contribution, not the deck's.  Also not in the deck:
+steady-state.  So the periodic domain, n_wave, dt, t_end and Dedalus itself are this
+package's contribution, not the deck's.  The INITIAL CONDITION is not: the deck's own
+forced steady state (pp.12-18, p.11) is the state the flume (pp.17-18) is physically in
+before the banks are allowed to erode, and that is where the integration starts.  See
+initial_condition().  Also not in the deck:
 a numerical value for eps (see eps_Cf below); the operator form d^2/dx^2 in place of
 p.9's modal -k^2 (equivalent for one mode, more general here); and the explicit entries
 of M(omega) -- p.19 prints only "det M = 0".
@@ -81,9 +85,11 @@ CONFIG = dict(
     gamma=0.10,      # gamma = C_f b / H                         [pp.12-20 sidebar]
     # eps is the bank erodibility of p.19.  river.pdf NEVER defines it and NEVER gives
     # it a value -- it appears only inside the product eps*C_f*U0/b.  [NOT IN DECK]
-    # 0.5 is CALIBRATED, not cited: it is the value for which c(k*->0) = -E D/gamma
-    # reproduces all six phase-speed intercepts of the p.20 figure (see README).
-    eps_Cf=0.50,     # eps * C_f   ->   E = eps_Cf * (1 - D)      [p.19 + calibration]
+    # 0.5 is an ASSUMPTION, not a citation and not a fit to anything.  Both sigma and
+    # c(k*->0) = -E D/gamma scale with it, so it sets the RATE of everything while
+    # changing none of the structure -- the growth band, the sign of c, the
+    # psihat2/psihat1 ratios and the k* of the peak are all independent of it.
+    eps_Cf=0.50,     # eps * C_f   ->   E = eps_Cf * (1 - D)      [p.19; value assumed]
     # ===================== NUMERICS =======================================
     # Domain is n_wave whole wavelengths: L = n_wave * 2pi/k*.  n_wave is chosen per
     # run so the reach matches the slides' 25 x 2b x-axis (pp.12-19).
@@ -95,22 +101,29 @@ CONFIG = dict(
                      # accuracy choice, not a CFL limit (asserted in 03_verify.py)
     t_end=40.0,
     n_out=200,       # snapshots written
-    # ===================== INITIAL CONDITION  [NOT IN DECK] ================
-    # Kick the centreline, leave both banks straight:  psi2' = cos(k* x), psi1' = psi3' = 0.
-    # Nothing is seeded into the banks -- the instability has to build them.  This is
-    # also the stronger test: the dynamics must DISCOVER the deck's normal mode rather
-    # than be handed it.  "eigen" and "varicose" exist only for 03_verify.py.
-    ic="kick",       # "kick" | "eigen" | "varicose" | "asym"
-    A0=1.0,          # IC amplitude (the system is linear, so this only sets units)
+    # ===================== INITIAL CONDITION ================================
+    # There is exactly ONE physical setup, so there is no choice of KIND here -- see
+    # initial_condition().  A0 is the sinuosity the channel is carved with at t=0, in the
+    # same units as psi (b(U0+Delta)).  It is a physical input, not a display knob: the
+    # movies plot psi in its own units with no gain, so A0 is what sets how wavy the flume
+    # starts.  |psibar(b)| = 1 - D/3 = 0.833 at D=0.5 is the natural yardstick.
+    A0=0.02,
 )
 
 # The two headline runs: identical but for k*.  n_wave differs ONLY so that both reaches
 # are ~25 x 2b like the slides (L = 20.9 x 2b and 25.1 x 2b respectively).
 #   k* = 0.3 : k*^2 = 0.09 < 2D = 1.0  -> resonant, grows, marches upstream   [p.12 top]
 #   k* = 1.5 : k*^2 = 2.25 > 2D = 1.0  -> non-resonant, decays, ~stationary   [p.12 bottom]
+# A0 differs per run only because one grows and the other decays: each starts at a
+# sinuosity that leaves the whole evolution on-screen at fixed axis limits.  Growth is
+# NOT rescaled -- k*=0.3 really does grow ~25x, and you watch it happen.
+# Both runs start from the physical initial condition, so both are meanders in the deck's
+# sense.  No downstream-travelling case appears, and that is a result rather than an
+# omission: c <= 0 on the whole bank branch (README, "Can the meander ever travel
+# downstream?").
 RUNS = [
-    dict(tag="k0.30", kstar=0.30, n_wave=2),
-    dict(tag="k1.50", kstar=1.50, n_wave=12),
+    dict(tag="k0.30", kstar=0.30, n_wave=2, A0=0.02),    # grows, UPSTREAM  c=-0.243
+    dict(tag="k1.50", kstar=1.50, n_wave=12, A0=0.40),   # decays, stationary c=-0.0001
 ]
 
 
@@ -144,61 +157,95 @@ def domain_length(cfg):
     return cfg["n_wave"] * 2.0 * np.pi / cfg["kstar"]
 
 
-def mode_index(cfg):
-    """Which Fourier mode number the IC excites:  n = k* L/(2pi) = n_wave."""
+def fourier_mode_number(cfg):
+    """Which Fourier mode index the wavenumber k* occupies in the periodic box.
+
+    Pure bookkeeping, NOT physics: n = k* L/(2pi) = n_wave, and it exists only so the
+    postprocessing can read the right slot out of Dedalus's RealFourier coefficient
+    array (mode n lives at [2n], [2n+1]).  Contrast initial_condition(), which returns
+    the actual starting FIELDS -- the two are unrelated despite both mentioning modes.
+    """
     return int(round(cfg["kstar"] * domain_length(cfg) / (2.0 * np.pi)))
 
 
-def dispersion_roots(kstar, D, gamma, E):
-    """Both roots omega* of det M = 0 for the 3-level closure.
 
-    [NOT IN DECK -- RECONSTRUCTION]  river.pdf p.19 prints only
-    "M(omega)[psihat1'; psihat2'] = 0  =>  det M = 0"; the entries of M and the
-    resulting quadratic are never written out.  What follows is derived here from
-    p.9 + p.10 + p.19 by eliminating psihat1 between the bank equation and the centre
-    vorticity equation, with W = -i omega*:
 
-        centre (p.9 + p.10, using psihat1 = psihat3):
-            (W + i k* + gamma) [2 psihat1 - (2 + k*^2) psihat2] + 2 i D k* psihat2 = 0
-        bank (p.19):
-            (W + E) psihat1 = E psihat2
+# ---------------------------------------------------------------------------- #
+#  WHAT IS PHYSICS HERE AND WHAT IS DIAGNOSTIC
+#
+#  The two functions below ARE needed by the time integration: simulate() calls
+#  initial_condition(), which calls forced_ratio() to build psi2' at t=0.
+#
+#  The dispersion relation (dispersion_roots, bank_mode, bank_branch) is NOT -- the IVP
+#  never evaluates it.  It lives in postprocessing/pp_lib.py with the other diagnostics,
+#  so that this file contains nothing that computes an answer the simulation is supposed
+#  to produce on its own.
+# ---------------------------------------------------------------------------- #
+def forced_ratio(kstar, D, gamma):
+    """psihat2/psihat1 of the FORCED steady state -- the deck's pp.12-18 problem.
 
-        =>  (2 + k*^2) W^2 + A1 W + A0 = 0
-            A1 = (2 + k*^2)(i k* + gamma + E) - 2 i D k* - 2 E
-            A0 = E [k*^2 (i k* + gamma) - 2 i D k*]
+    river.pdf pp.12-16 and 18 are titled "Forced steady state" and "Forced-dissipative
+    steady state", and p.11 states the closure as psihat2 = f(psihat1): the banks are
+    GIVEN and the interior is slaved to them.  p.11 never writes f, so this is a
+    reconstruction -- set W = 0 (steady) in the p.10 centre balance, with psihat1 = psihat3:
 
-    It reproduces the p.20 phase-speed intercepts and growth-rate zero crossings; it
-    does NOT reproduce the p.20 peak heights (see postprocessing/04_missing_term.py).
+        (i k* + gamma)[2 psihat1 - (2 + k*^2) psihat2] + 2 i D k* psihat2 = 0
+        =>  psihat2/psihat1 = 2(i k* + gamma) / [(2 + k*^2)(i k* + gamma) - 2 i D k*]
+
+    At gamma = 0 this collapses to 2/(2 + k*^2 - 2D), which is exactly the p.14 box:
+    |psihat2| > |psihat1| if k*^2 < 2D.  Asserted in postprocessing/03_verify.py.
     """
-    k = float(kstar)
-    A2 = 2.0 + k**2
-    A1 = (2.0 + k**2) * (1j * k + gamma + E) - 2j * D * k - 2.0 * E
-    A0 = E * (k**2 * (1j * k + gamma) - 2j * D * k)
-    return 1j * np.roots([A2, A1, A0])          # omega* = i W
+    k = complex(kstar)
+    return 2.0 * (1j * k + gamma) / ((2.0 + k**2) * (1j * k + gamma) - 2j * D * k)
 
 
-def bank_mode(kstar, D, gamma, E):
-    """(omega*, psihat1, psihat2) of the bank-erosion branch, psihat2 normalised to 1.
+def initial_condition(x, cfg):
+    """The one physical initial state: a carved wavy channel, flow in equilibrium with it.
 
-    The branch is selected as the root with the larger Im omega* (the one the IVP
-    converges to).  psihat1 then follows from the p.19 bank equation.
+    WHY THIS AND NOTHING ELSE.  river.pdf poses a FORCED problem before it poses an
+    unstable one.  pp.12-16 and 18 prescribe a wavy channel and solve for the interior
+    response; p.11 makes the slaving explicit as psihat2 = f(psihat1).  The experiment on
+    pp.17-18 is the same statement in foam and dye: a RIGID CARVED WAVY CHANNEL with water
+    running through it.  The banks are the imposed meander; the interior flow is what
+    answers.  Only on p.19 does the deck release the banks and let them erode.
+
+    So the initial-value problem the deck actually sets up is: take the forced-dissipative
+    steady state on a given wavy channel, then switch the banks from rigid to erodible and
+    watch.  That is
+
+        psi1' = psi3' = A cos(k* x)                     the carved meander (p.9 sinuous)
+        psi2' = Re[ f(k*, D, gamma) * A exp(i k* x) ]   the interior response (p.11)
+
+    It is uniquely determined by the deck -- no free choice, hence no option in CONFIG.
+
+    The state is NOT an eigenmode of the p.19 bank-erosion problem, so it evolves from the
+    first step: the dynamics still has to FIND the growing mode rather than be handed it.
+    Verification check 7 asserts that it satisfies the p.16 steady balance exactly at t=0
+    and has left it by the end -- the cheapest test that the problem is posed the way
+    river.pdf poses it.
     """
-    om = dispersion_roots(kstar, D, gamma, E)
-    om = om[np.argmax(om.imag)]
-    W = -1j * om
-    psi2_hat = 1.0 + 0j
-    psi1_hat = E * psi2_hat / (W + E)            # (W + E) psihat1 = E psihat2   [p.19]
-    return om, psi1_hat, psi2_hat
+    kstar, A0 = cfg["kstar"], cfg["A0"]
+    f = forced_ratio(kstar, cfg["D"], cfg["gamma"])
+    cs, sn = np.cos(kstar * x), np.sin(kstar * x)
+    bank = A0 * cs                                    # psi1' = psi3', wavy: the channel
+    centre = A0 * (f.real * cs - f.imag * sn)         # Re[f A e^{i k x}]: the response
+    return bank, centre, bank
 
 
 # --------------------------------------------------------------------------- #
 #  The simulation
 # --------------------------------------------------------------------------- #
-def simulate(cfg, quiet=False):
+def simulate(cfg, quiet=False, _test_ic=None):
     """Integrate the 3-level model and return the raw output as a dict.
 
-    Importable: postprocessing/02_dispersion.py and 04_missing_term.py call this
-    directly rather than shelling out, so the driver stays a pure simulator.
+    Importable: postprocessing/02_dispersion.py calls this directly rather than
+    shelling out, so the driver stays a pure simulator.
+
+    _test_ic is a TEST-ONLY hook, used by postprocessing/03_verify.py and nowhere else.
+    Two of its checks need deliberately UNPHYSICAL states -- a pure varicose perturbation
+    and a lopsided channel -- to measure a symmetry the physical initial condition makes
+    identically zero.  Those are properties of the test, not of the model, so they live in
+    the test file; CONFIG stays single-valued and there is no menu of physics to pick from.
     """
     import logging
 
@@ -235,18 +282,18 @@ def simulate(cfg, quiet=False):
     # would leave the /b**2 in the equation strings undefined.
     problem = d3.IVP([psi1, psi2, psi3], namespace=dict(locals(), b=b))
 
-    # Centre vorticity equation [p.10], with d_t psi1' and d_t psi3' eliminated via the
-    # p.19 bank law so that the time-derivative operator acts only on the state:
-    #     d_t zeta2' = E(psi2'-psi1') + E(psi2'-psi3') + d_t[d_xx psi2' - 2 psi2'/b^2]
-    # then  d_t zeta2' + d_x zeta2' + 2D d_x psi2' + gamma zeta2' = 0.
-    problem.add_equation(
-        "dt(dx(dx(psi2)) - 2*psi2/b**2)"                      # d_t of the psi2' share
-        " + dx(dx(dx(psi2))) + (dx(psi1) + dx(psi3) - 2*dx(psi2))/b**2"   # d_x zeta2'
-        " + 2*D*dx(psi2)"                                     # beta term, 2 Delta/b^2
-        " + gamma*((psi1 + psi3 - 2*psi2)/b**2 + dx(dx(psi2)))"           # friction
-        " + E*(2*psi2 - psi1 - psi3)/b**2"                    # from d_t psi1', d_t psi3'
-        " = 0"
-    )
+    # The centre vorticity equation, written exactly as river.pdf p.10 prints it.
+    #
+    #     [d/dt + (U0+Delta) d/dx] zeta2' + (2 Delta/b^2) d(psi2')/dx = -C_f(U0+Delta)/H zeta2'
+    #
+    # nondimensionalised (advection speed 1, beta coefficient 2D, friction gamma).  No
+    # hand-elimination is needed: zeta2' is a LINEAR combination of the state, so Dedalus
+    # accepts dt(zeta2) directly and builds the mass matrix itself.  (An earlier version
+    # expanded this by hand into six terms, having substituted the p.19 bank law to remove
+    # dt(psi1') and dt(psi3').  That was unnecessary -- the two forms agree to 1.4e-15 --
+    # and it buried the one equation a reader most wants to recognise.)
+    problem.add_equation("dt(zeta2) + dx(zeta2) + 2*D*dx(psi2) + gamma*zeta2 = 0")
+
     # Erodible banks [p.19].  The deck prints only the psi1' equation; psi3' is the same
     # law at the other bank, which the y -> -y symmetry of the base state requires.
     problem.add_equation("dt(psi1) + E*psi1 - E*psi2 = 0")
@@ -255,39 +302,16 @@ def simulate(cfg, quiet=False):
     solver = problem.build_solver(d3.SBDF2)
     solver.stop_sim_time = cfg["t_end"]
 
-    # ---- initial condition  [NOT IN DECK: river.pdf has no time integration] -------
+    # ---- initial condition: the carved wavy channel, in equilibrium -----------------
     x = dist.local_grid(xbasis)
-    A0 = cfg["A0"]
-    ic = cfg["ic"]
-    if ic == "kick":
-        # Wiggle the centreline; both banks start perfectly straight.
-        psi2["g"] = A0 * np.cos(kstar * x)
-        psi1["g"] = np.zeros_like(x)
-        psi3["g"] = np.zeros_like(x)
-    elif ic == "eigen":
-        # The deck's own normal mode at t=0: psihat_j exp(i k* x), sinuous by construction.
-        _, p1h, p2h = bank_mode(kstar, D, gamma, E)
-        cs, sn = np.cos(kstar * x), np.sin(kstar * x)
-        psi1["g"] = A0 * (p1h.real * cs - p1h.imag * sn)
-        psi3["g"] = psi1["g"].copy()
-        psi2["g"] = A0 * (p2h.real * cs - p2h.imag * sn)
-    elif ic == "varicose":
-        # psi1' = -psi3', psi2' = 0.  zeta2' vanishes identically, so this excites ONLY
-        # the antisymmetric subspace, which must decay at exactly -E for every k*,D,gamma.
-        psi1["g"] = A0 * np.cos(kstar * x)
-        psi3["g"] = -A0 * np.cos(kstar * x)
-        psi2["g"] = np.zeros_like(x)
-    elif ic == "asym":
-        # Both subspaces at once: the sinuous part grows at sigma, the varicose part
-        # decays at -E.  Used to show psihat1 = psihat3 is reached, not assumed.
-        psi2["g"] = A0 * np.cos(kstar * x)
-        psi1["g"] = 0.5 * A0 * np.cos(kstar * x)
-        psi3["g"] = np.zeros_like(x)
+    if _test_ic is None:
+        g1, g2, g3 = initial_condition(x, cfg)
     else:
-        raise ValueError(f"unknown ic {ic!r}")
+        g1, g2, g3 = _test_ic(x, cfg)
+    psi1["g"], psi2["g"], psi3["g"] = g1, g2, g3
 
     # ---- march ---------------------------------------------------------------------
-    n = mode_index(cfg)
+    n = fourier_mode_number(cfg)
     stride = max(1, int(round(cfg["t_end"] / cfg["dt"] / cfg["n_out"])))
     t, g1, g2, g3, a1, a2, a3 = [], [], [], [], [], [], []
 
@@ -318,13 +342,15 @@ def simulate(cfg, quiet=False):
         psi1=np.asarray(g1), psi2=np.asarray(g2), psi3=np.asarray(g3),
         amp1=np.asarray(a1), amp2=np.asarray(a2), amp3=np.asarray(a3),
         kstar=kstar, D=D, gamma=gamma, eps_Cf=cfg["eps_Cf"], E=E,
-        b=b, L=L, n_wave=cfg["n_wave"], mode_n=n, dt=cfg["dt"], ic=ic,
+        b=b, L=L, n_wave=cfg["n_wave"], mode_n=n, dt=cfg["dt"],
     )
     if not quiet:
-        om, _, _ = bank_mode(kstar, D, gamma, E)
+        # configuration only -- no analytic growth rate here.  Printing the answer the
+        # simulation is supposed to produce would put a diagnostic in the driver, and it
+        # is the postprocessing's job to say whether the run reproduced it.
         print(f"    k*={kstar:<5} D={D} gamma={gamma} E={E:.3f}  L={L:.2f} "
               f"({L / 2:.1f} x 2b, {cfg['n_wave']} waves)  "
-              f"analytic sigma={om.imag:+.5f} c={om.real / kstar:+.5f}")
+              f"A0={cfg['A0']}  t_end={cfg['t_end']}")
     return out
 
 

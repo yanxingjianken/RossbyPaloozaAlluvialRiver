@@ -6,7 +6,7 @@ Contains (a) the byte-identical rossby_palooza shared plotting/mp4 helper block,
 diagnostic, and (d) the RealFourier mode-amplitude guard.
 
 Nothing here reads river.pdf; every deck-sourced number arrives via a page-cited
-constant defined below or in data/deck_p20_pins.csv.
+constant defined below.  Nothing here reads a value off a figure.
 """
 import os
 import sys
@@ -15,7 +15,6 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIG_DIR = os.path.join(HERE, "figures")
-DATA_DIR = os.path.join(HERE, "data")
 OUT_DIR = os.path.join(HERE, "outputs")
 sys.path.insert(0, HERE)
 
@@ -31,7 +30,6 @@ COLORS = {
     "deckpin": "#252525",
     "flux_pos": "#6a51a3",
     "flux_neg": "#d7301f",
-    "water": "#bcd9ef",
 }
 
 # The six (D, gamma) families of the river.pdf p.20 figure, with the deck's own
@@ -113,7 +111,59 @@ def write_mp4(frames, name, fps=20):
 # --------------------------------------------------------------------------- #
 #  river.pdf p.19 dispersion relation  [RECONSTRUCTION -- see noboru_model.py]
 # --------------------------------------------------------------------------- #
-from noboru_model import bank_E, bank_mode, dispersion_roots  # noqa: E402
+from noboru_model import (bank_E, forced_ratio,  # noqa: E402,F401
+                          initial_condition)
+
+
+# --------------------------------------------------------------------------- #
+#  The dispersion relation.  DIAGNOSTIC ONLY -- the time integration never touches
+#  it; it lives here rather than in the driver so that the driver contains nothing
+#  that computes an answer the simulation is meant to produce.
+# --------------------------------------------------------------------------- #
+def dispersion_roots(kstar, D, gamma, E):
+    """Both roots omega* of det M = 0 for the 3-level closure.
+
+    [NOT IN DECK -- RECONSTRUCTION]  river.pdf p.19 prints only
+    "M(omega)[psihat1'; psihat2'] = 0  =>  det M = 0"; the entries of M and the
+    resulting quadratic are never written out.  What follows is derived here from
+    p.9 + p.10 + p.19 by eliminating psihat1 between the bank equation and the centre
+    vorticity equation, with W = -i omega*:
+
+        centre (p.9 + p.10, using psihat1 = psihat3):
+            (W + i k* + gamma) [2 psihat1 - (2 + k*^2) psihat2] + 2 i D k* psihat2 = 0
+        bank (p.19):
+            (W + E) psihat1 = E psihat2
+
+        =>  (2 + k*^2) W^2 + A1 W + A0 = 0
+            A1 = (2 + k*^2)(i k* + gamma + E) - 2 i D k* - 2 E
+            A0 = E [k*^2 (i k* + gamma) - 2 i D k*]
+
+    Asserted against the Dedalus IVP in 03_verify.py, which agrees to seven decimals.
+    Note sigma and c both scale with E, i.e. with the assumed eps_Cf; the growth band,
+    the sign of c and the psihat2/psihat1 ratios do not.
+    """
+    k = float(kstar)
+    A2 = 2.0 + k**2
+    A1 = (2.0 + k**2) * (1j * k + gamma + E) - 2j * D * k - 2.0 * E
+    A0 = E * (k**2 * (1j * k + gamma) - 2j * D * k)
+    return 1j * np.roots([A2, A1, A0])          # omega* = i W
+
+
+
+
+def bank_mode(kstar, D, gamma, E):
+    """(omega*, psihat1, psihat2) of the bank-erosion branch, psihat2 normalised to 1.
+
+    The branch is selected as the root with the larger Im omega* (the one the IVP
+    converges to).  psihat1 then follows from the p.19 bank equation.
+    """
+    om = dispersion_roots(kstar, D, gamma, E)
+    om = om[np.argmax(om.imag)]
+    W = -1j * om
+    psi2_hat = 1.0 + 0j
+    psi1_hat = E * psi2_hat / (W + E)            # (W + E) psihat1 = E psihat2   [p.19]
+    return om, psi1_hat, psi2_hat
+
 
 
 def bank_branch(ks, D, gamma, E):
@@ -153,17 +203,6 @@ def peak_zero_intercept(D, gamma, E, ks=None):
     return float(ks[i]), float(sig[i]), float(kzero), float(c[0])
 
 
-def forced_ratio(kstar, D, gamma):
-    """Steady forced psihat2/psihat1 (omega = 0) of the p.10 centre balance.
-
-    [RECONSTRUCTION]  p.11 states only "psihat2 = f(psihat1)"; f is never printed.
-    Setting W = 0 in the centre equation gives
-        psihat2/psihat1 = 2 (i k* + gamma) / [(2 + k*^2)(i k* + gamma) - 2 i D k*]
-    which at gamma = 0 collapses to 2/(2 + k*^2 - 2D) -- the p.14 box, exactly:
-    |psihat2| > |psihat1| if k*^2 < 2D.
-    """
-    k = complex(kstar)
-    return 2.0 * (1j * k + gamma) / ((2.0 + k**2) * (1j * k + gamma) - 2j * D * k)
 
 
 # --------------------------------------------------------------------------- #
@@ -247,16 +286,3 @@ def fit_sigma_c(t, amp, kstar, frac=0.6):
     return float(p[0]), float(om_re / kstar), resid
 
 
-def load_p20_pins():
-    """The digitized river.pdf p.20 pins (provenance header inside the CSV)."""
-    path = os.path.join(DATA_DIR, "deck_p20_pins.csv")
-    rows = []
-    with open(path) as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#") or line.startswith("family,"):
-                continue
-            f, D, g, kpk, spk, kz, c0 = line.split(",")
-            rows.append(dict(family=f, D=float(D), gamma=float(g), kstar_peak=float(kpk),
-                             sigma_peak=float(spk), kzero=float(kz), c0=float(c0)))
-    return rows
