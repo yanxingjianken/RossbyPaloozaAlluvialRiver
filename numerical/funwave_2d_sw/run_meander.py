@@ -68,14 +68,16 @@ CONFIG = dict(
     # The reach is a COMMON MULTIPLE of both wavelengths, so both cases share the same
     # down-valley domain, the same nx, and the same inlet/outlet geometry -- only the bend
     # DENSITY differs.  L = 6 * 1047 = 12 * 523.5 = 6282 m.
-    lam_ref=1047.0,      # reference wavelength [m]
+    lam_ref=1040.0,      # reference wavelength [m].  Chosen so L/dx = 6*1040/2.5 = 2496 is
+                         #   a multiple of PAD_X (32) -- see decompose() on why divisibility
+                         #   is load-bearing.  Still ~10 W, the Leopold-Wolman scale.
     n_bends_ref=6,       # bends of lam_ref in the reach  ->  L_valley = 6282 m
     # Buffer at each end, made non-erodible because FUNWAVE hard-zeros the sediment flux
     # at the open boundaries.  It is a FIXED PHYSICAL LENGTH, not a bend count: the
     # artefact's scale is the sediment adaptation length (L_a = U H/(gamma w_s) ~ 20 m)
     # plus the flow adjustment, neither of which scales with the bend wavelength.  Counting
     # bends instead would discard 33% of B1's reach but only 17% of B2's.
-    buffer_len=1047.0,   # [m] -> interior 4188 m = 4 B1 bends = 8 B2 bends, identical
+    buffer_len=1040.0,   # [m] -> interior 4160 m = 4 B1 bends = 8 B2 bends, identical
     # =================== FLOW ==============================================
     U=1.0,               # target reach-mean velocity [m/s]
     # The straight-channel normal slope does NOT include bend losses, so imposing it
@@ -84,7 +86,10 @@ CONFIG = dict(
     # self-consistent: H = h(n) everywhere at uniform flow) and is CALIBRATED:
     #     micromamba run -n fourcastnetv2 python run_meander.py --calibrate
     # measures the achieved mean speed U_meas and reports  hf_new = hf * (U/U_meas)^2.
-    head_factor=1.0,     # [-] multiplier on the straight-channel normal slope
+    head_factor=1.558,   # [-] multiplier on the straight-channel normal slope.
+                         #   CALIBRATED 2026-07-22: iteration 1 at hf=1.0 gave U_mean =
+                         #   0.801 (B1) / 0.808 (B2) m/s against a design 1.00, i.e. the
+                         #   straight-channel head delivers only 80% of the target speed.
     Cd=0.00154,          # drag coefficient.  NOT free: it is the log-law value that
                          #   FUNWAVE's own sediment module uses internally,
                          #   Cd = kappa^2/[ln(30 H/k_s) - 1]^2 with k_s = 2.5 D50.
@@ -116,13 +121,15 @@ CONFIG = dict(
                          #   t_morph * Morph_factor = 8e6 s = 93 d ~ ONE bar-formation
                          #   timescale T_bed = (1-n_p) H W / q_b, so the run spans roughly
                          #   one bar and no more.  Longer just accumulates MF error.
+    CFL=0.5,             # [-]  (0.3 tested: does NOT fix the B2 blow-up)
+    MinDepth=0.01,       # [m] wet/dry threshold, also used as MinDepthFrc
     plot_intv=250.0,     # [s] snapshot interval -> 80 frames
     max_ranks=64,
 )
 
 # The two cases.  ONLY lambda differs; A is derived from C0 so the drive is identical.
-RUNS = [dict(tag="B1", lam=1047.0),
-        dict(tag="B2", lam=523.5)]        # exactly lam_ref/2 so the reach is a common multiple
+RUNS = [dict(tag="B1", lam=1040.0),
+        dict(tag="B2", lam=520.0)]        # exactly lam_ref/2 so the reach is a common multiple
 
 
 # --------------------------------------------------------------------------- #
@@ -145,6 +152,23 @@ def slope_design(cfg):
 def slope(cfg):
     """The slope actually built into the bed and the boundary head.  Calibrated."""
     return cfg["head_factor"] * slope_design(cfg)
+
+
+def taper(x, cfg):
+    """Amplitude ramp: 0 at the domain ends, 1 across the analysed interior.
+
+    x = 0 and x = L are CRESTS of y_c = A cos(kx), i.e. points of MAXIMUM curvature, and the
+    tide sponge is 30 cells (75 m) wide.  Clamping U = U_design, V = 0 inside the tightest
+    part of a bend throttles the inlet: measured Q(x=0) collapsed 279 -> 162 m3/s and the
+    reach drained until it blew up.  The sponge occupies 14% of a B2 bend but only 7% of a
+    B1 bend, which is why B2 failed at a head B1 tolerated.
+    Ramping the amplitude to zero over the (non-analysed) buffer puts the sponge in a
+    STRAIGHT channel, where U = U_design, V = 0 is exactly the right state.  Raised cosine,
+    so both position and slope are continuous at the join.
+    """
+    L, w = reach_length(cfg), cfg["buffer_len"]
+    d = np.minimum(np.clip(x, 0.0, L), L - np.clip(x, 0.0, L))     # distance to nearer end
+    return 0.5 * (1.0 - np.cos(np.pi * np.clip(d / w, 0.0, 1.0)))
 
 
 def reach_length(cfg):
@@ -213,16 +237,17 @@ def channel_coords(X, Y, lam, cfg, ds_frac=0.25):
     L = reach_length(cfg)
     # sample beyond both ends so points near x=0 and x=L still find a true nearest point
     xc = np.arange(-lam / 2.0, L + lam / 2.0, cfg["dx"] * ds_frac)
-    yc = A * np.cos(k * xc)
+    yc = A * taper(xc, cfg) * np.cos(k * xc)
     seg = np.hypot(np.diff(xc), np.diff(yc))
     sc = np.concatenate([[0.0], np.cumsum(seg)])
     xp, yp = np.gradient(xc), np.gradient(yc)
     tn = np.hypot(xp, yp)
     tx, ty = xp / tn, yp / tn
-    # signed curvature of the analytic curve y = A cos(kx), parameterised by x:
-    #   x' = 1, x'' = 0, y' = -Ak sin(kx), y'' = -Ak^2 cos(kx)
-    #   kappa = (x' y'' - y' x'') / (x'^2 + y'^2)^{3/2}
-    kap = (-A * k ** 2 * np.cos(k * xc)) / (1.0 + (A * k * np.sin(k * xc)) ** 2) ** 1.5
+    # Signed curvature by finite difference on the sampled curve.  The analytic form for
+    # A cos(kx) no longer applies once the amplitude is tapered, and FD on a 0.625 m
+    # sampling is exact to ~1e-4 of C0 at R = 200 m (checked in tests/test_bathy.py).
+    xpp, ypp = np.gradient(xp), np.gradient(yp)
+    kap = (xp * ypp - yp * xpp) / (xp ** 2 + yp ** 2) ** 1.5
 
     idx = cKDTree(np.column_stack([xc, yc])).query(np.column_stack([X.ravel(), Y.ravel()]))[1]
     dx_, dy_ = X.ravel() - xc[idx], Y.ravel() - yc[idx]
@@ -241,8 +266,9 @@ def build_case(lam, cfg):
     """
     A, k, L = amplitude(lam, cfg), wavenumber(lam), reach_length(cfg)
     half = A + cfg["b"] + cfg["m_bank"] * (cfg["H_b"] + cfg["freeboard"]) + cfg["plain"]
-    nx = int(round(L / cfg["dx"]))
-    ny = int(round(2.0 * half / cfg["dx"]))
+    nx = int(np.ceil(L / cfg["dx"] / PAD_X)) * PAD_X
+    ny = int(np.ceil(2.0 * half / cfg["dx"] / PAD_Y)) * PAD_Y
+    half = ny * cfg["dx"] / 2.0                    # widen the (dry) floodplain to suit
     x = (np.arange(nx) + 0.5) * cfg["dx"]
     y = -half + (np.arange(ny) + 0.5) * cfg["dx"]
     X, Y = np.meshgrid(x, y, indexing="ij")
@@ -259,11 +285,13 @@ def build_case(lam, cfg):
     # analytic normal flow: eta = -S(s - s0) so that H = eta + Depth = h_sec exactly,
     # and |u| = sqrt(g h S / Cd) directed along the local centreline tangent.
     eta = -S * (s - s0)
-    # IC speed follows the design normal-flow shape U ~ sqrt(h), normalised to the design U
-    # on the centreline.  It must NOT be sqrt(g h S/Cd) with the calibrated S, or the initial
-    # velocity would inherit head_factor and start sqrt(hf) too fast.
+    # IC speed = the STRAIGHT-channel normal flow for the calibrated bed slope,
+    # |u| = sqrt(g h S_bed / Cd) = sqrt(head_factor) * U * sqrt(h/H_c).
+    # The reach settles BELOW this because bend losses eat the difference, so the transient
+    # is a deceleration.  Starting instead at the design U makes it an ACCELERATION, and
+    # that transient blew B2 up at t = 963 s (hf = 1.558; also fails at CFL = 0.3).
     speed = np.where(h_sec > 0.0,
-                     cfg["U"] * np.sqrt(np.maximum(h_sec, 0.0) / cfg["H_c"]), 0.0)
+                     np.sqrt(G_ACCEL * np.maximum(h_sec, 0.0) * S / cfg["Cd"]), 0.0)
     ini = dict(eta=eta, u=speed * tx, v=speed * ty)
 
     # Buffer over the first and last bend, needed because FUNWAVE's FLUX_SCALAR_BC
@@ -340,10 +368,10 @@ Cd = {Cd}
 C_smg = 0.25
 nu_bkg = 0.0
   ! ---------------- NUMERICS ----------------
-CFL = 0.5
+CFL = {CFL}
 FroudeCap = 1.0
-MinDepth = 0.01
-MinDepthFrc = 0.01
+MinDepth = {MinDepth}
+MinDepthFrc = {MinDepth}
 VISCOSITY_BREAKING = T
   ! ---------------- OUTPUT ----------------
 NumberStations = 0
@@ -375,14 +403,27 @@ PLOT_INTV_SEDIMENT = {plot_intv}
 """
 
 
+PAD_X, PAD_Y = 32, 8      # nx, ny are padded to multiples of these
+
+
 def decompose(meta, cfg):
-    """MPI decomposition: aim for ~1e4 cells per rank, powers of two, py <= px."""
+    """MPI decomposition: ~1e4 cells per rank, powers of two, and px | nx, py | ny.
+
+    Divisibility is NOT cosmetic.  A case with Nglob = 93 on py = 2 ran to "Normal
+    Termination" with the water in place (PhaseS = 5.0) but the INI_UVZ velocity field
+    silently dropped to ZERO everywhere -- no error, no warning, MaxTotalU = 0.  nx and ny
+    are padded in build_case so the powers of two below always divide them."""
     px, py = 1, 1
-    while meta["nx"] * meta["ny"] / (px * py) > 1.0e4 and px * py < cfg["max_ranks"]:
-        if meta["nx"] / px >= 2 * meta["ny"] / py:
+    while (meta["nx"] * meta["ny"] / (px * py) > 1.0e4 and px * py < cfg["max_ranks"]
+           and (2 * px <= PAD_X or 2 * py <= PAD_Y)):
+        if meta["nx"] / px >= 2 * meta["ny"] / py and 2 * px <= PAD_X:
             px *= 2
-        else:
+        elif 2 * py <= PAD_Y:
             py *= 2
+        else:
+            break
+    assert meta["nx"] % px == 0 and meta["ny"] % py == 0, \
+        f"decomposition {px}x{py} does not divide grid {meta['nx']}x{meta['ny']}"
     return px, py
 
 
@@ -452,14 +493,46 @@ def report(runs, cfg):
               f"{m['L_channel']:7.0f} {t_spin:7.0f}{flag}{bad}")
 
 
+def health(base, phase, cfg):
+    """Is the run physically alive?  'Normal Termination' is NOT a success criterion.
+
+    FUNWAVE only flags a blow-up above EtaBlowVal = 100 x max_depth (~300 m here), so a reach
+    that drains completely -- eta -> -73 m, every cell dry, u identically 0 -- still prints
+    'Normal Termination'.  That false positive was believed twice in this project before it
+    was caught.  Check the fields instead.
+    """
+    import glob
+    out = os.path.join(base, phase, "output")
+    if glob.glob(os.path.join(out, "*_99999")):
+        return False, "blow-up dump (*_99999) present"
+    su = [p for p in sorted(glob.glob(os.path.join(out, "eta_*"))) if "99999" not in p]
+    if not su:
+        return False, "no eta snapshots"
+    g = np.load(os.path.join(base, "bathy", "grid.npz"))
+    eta = np.loadtxt(su[-1]).T
+    H = eta + g["Depth"]
+    X, Y = np.meshgrid(g["x"], g["y"], indexing="ij")
+    n = channel_coords(X, Y, float(g["lam"]), cfg)[0]
+    chan = np.abs(n) <= cfg["b"]
+    wet = float((H[chan] > cfg["MinDepth"]).mean())
+    if wet < 0.90:
+        return False, f"channel only {100*wet:.0f}% wet (drained); eta min {eta.min():.1f} m"
+    if abs(eta[chan]).max() > 5.0:
+        return False, f"|eta| in channel reached {abs(eta[chan]).max():.1f} m"
+    return True, f"channel {100*wet:.0f}% wet, |eta|max {abs(eta[chan]).max():.2f} m"
+
+
 def launch(base, phase, nranks, cfg):
     work = os.path.join(base, phase)
     with open(os.path.join(work, "run.log"), "w") as log:
         subprocess.run(["mpirun", "--oversubscribe", "-np", str(nranks),
                         "--mca", "btl_vader_single_copy_mechanism", "none", EXE],
                        cwd=work, stdout=log, stderr=subprocess.STDOUT, check=False)
-    ok = "Normal Termination" in open(os.path.join(work, "run.log")).read()
-    print(f"    {phase}: {'OK' if ok else 'FAILED -- see run.log'}")
+    terminated = "Normal Termination" in open(os.path.join(work, "run.log")).read()
+    ok, why = health(base, phase, cfg)
+    ok = ok and terminated
+    print(f"    {phase}: {'OK' if ok else 'FAILED'} -- {why}"
+          + ("" if terminated else " (no Normal Termination)"))
     return ok
 
 

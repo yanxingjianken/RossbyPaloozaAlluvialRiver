@@ -109,7 +109,7 @@ Xp = rng.uniform(lam * 0.3, lam * 0.7, 300)
 Yp = rng.uniform(-A - CFG["b"], A + CFG["b"], 300)
 n_kd, s_kd = rm.channel_coords(Xp[:, None], Yp[:, None], lam, CFG)[:2]
 xf = np.linspace(-lam, rm.reach_length(CFG) + lam, 400001)      # brute-force reference
-yf = A * np.cos(k * xf)
+yf = A * rm.taper(xf, CFG) * np.cos(k * xf)   # the taper is part of the centreline
 d_brute = np.array([np.min(np.hypot(Xp[i] - xf, Yp[i] - yf)) for i in range(len(Xp))])
 rel = np.abs(np.abs(n_kd.ravel()) - d_brute) / np.maximum(d_brute, 1e-6)
 check("|n| matches brute-force nearest distance", rel.max() < 5e-3,
@@ -168,9 +168,12 @@ for lam in LAMS:
           Zs[0, 0] == 0.0 and Zs[m["nx"] // 2, m["ny"] // 2] > 1e5)
 
 print("\n=== 9. normal-flow consistency of the design ===")
-S = rm.slope(CFG)
-check("g H_c S = Cd U^2", abs(rm.G_ACCEL * CFG["H_c"] * S - CFG["Cd"] * CFG["U"] ** 2) < 1e-12,
-      f"S = {S:.4e}, head drop over the reach = "
+Sd, S = rm.slope_design(CFG), rm.slope(CFG)
+check("g H_c S_design = Cd U^2 (straight-channel normal flow)",
+      abs(rm.G_ACCEL * CFG["H_c"] * Sd - CFG["Cd"] * CFG["U"] ** 2) < 1e-12,
+      f"S_design = {Sd:.4e}")
+check("S_bed = head_factor * S_design", abs(S - CFG["head_factor"] * Sd) < 1e-15,
+      f"S_bed = {S:.4e} (head_factor = {CFG['head_factor']:.3f}), head drop over the reach = "
       f"{S*rm.reach_length(CFG)*rm.sinuosity(LAMS[0], CFG):.3f} m")
 ws = rm.settling_velocity(CFG)
 ustar = np.sqrt(CFG["Cd"]) * CFG["U"]
