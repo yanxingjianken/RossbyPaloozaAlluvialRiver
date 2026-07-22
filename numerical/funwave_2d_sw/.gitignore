@@ -1,0 +1,6 @@
+runs/
+figures/
+work_river/
+FUNWAVE-TVD/
+*.log
+__pycache__/

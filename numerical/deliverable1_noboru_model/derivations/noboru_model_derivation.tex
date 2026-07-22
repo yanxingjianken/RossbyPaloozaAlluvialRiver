@@ -1,0 +1,339 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\deck}[1]{{\color{blue!45!black}\small[river.pdf p.#1]}}
+\newcommand{\notdeck}{{\color{red!55!black}\small[NOT IN DECK]}}
+\newcommand{\zt}{\zeta_2'}
+\newcommand{\pt}{\psi_2'}
+\newcommand{\po}{\psi_1'}
+\newcommand{\ph}{\psi_3'}
+\newcommand{\ks}{k^{*}}
+\newcommand{\kss}{k^{*2}}   % k^{*}^{2} would be a double superscript
+\newcommand{\dx}{\partial_x}
+\newcommand{\dt}{\partial_t}
+
+\title{\bf The \code{river.pdf} three-level meander model\\
+\large Every equation integrated in Dedalus, and every formula behind the movie panels}
+\author{\code{numerical/deliverable1\_noboru\_model}}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-9mm}
+
+\begin{center}\small
+Source: \code{literature/river.pdf} --- 21-page deck \emph{``Meanders of alluvial rivers as
+forced Rossby waves''}.\\
+Colour key: \deck{n} = printed on that page of the deck. \notdeck{} = this package's
+reconstruction or choice.
+\end{center}
+
+\tableofcontents
+
+% ==================================================================
+\section{What the deck prints}
+
+\subsection{Base state \deck{9}}
+A jet in a straight channel of half-width $b$, with a parabolic profile:
+\begin{equation}
+  \bar u(y) \;=\; -\frac{\mathrm d\bar\psi}{\mathrm dy}
+  \;=\; U_0+\frac{\Delta}{b^{2}}\bigl(b^{2}-y^{2}\bigr),
+  \qquad y\in[-b,b].
+\end{equation}
+So $\bar u(\pm b)=U_0$ at the banks and $\bar u(0)=U_0+\Delta$ at the centre. The
+parabola is the load-bearing choice: $\mathrm d^{2}\bar u/\mathrm dy^{2}=-2\Delta/b^{2}$
+is \emph{constant}, so the cross-channel gradient of background vorticity
+\begin{equation}
+  \frac{\partial\bar\zeta}{\partial y} \;=\; -\frac{\mathrm d^{2}\bar u}{\mathrm dy^{2}}
+  \;=\; \frac{2\Delta}{b^{2}} \;=\; \text{const}
+\end{equation}
+is uniform. That constant is the channel analogue of a planetary $\beta$, and it is what
+makes the word ``Rossby'' in the deck's title mean something.
+
+\subsection{Three levels \deck{9}}
+The deck does not carry a $y$-grid. It samples the channel at exactly three lines
+$y_j=+b,\,0,\,-b$ and writes
+\begin{equation}
+  \psi_j(x,t)=\bar\psi(y_j)+\hat\psi_j\,e^{i(kx-\omega t)},\qquad j=1,2,3 .
+\end{equation}
+The cross-channel Laplacian becomes the 3-point stencil on that stencil of lines:
+\begin{equation}
+  \boxed{\;\zt \;=\; \frac{\po+\ph-2\pt}{b^{2}} \;-\; k^{2}\pt\;}
+  \qquad\deck{9}
+  \label{eq:zeta}
+\end{equation}
+
+\subsection{Interior vorticity equation \deck{10}}
+\begin{equation}
+  \boxed{\;\Bigl[\frac{\partial}{\partial t}+(U_0+\Delta)\frac{\partial}{\partial x}\Bigr]\zt
+  \;+\;\frac{2\Delta}{b^{2}}\frac{\partial\pt}{\partial x}
+  \;=\; -\,C_f\frac{U_0+\Delta}{H}\,\zt\;}
+  \label{eq:vort-dim}
+\end{equation}
+Left: advection by the centreline speed, plus the $\beta$-term
+$(2\Delta/b^{2})\dx\pt$. Right: \textbf{bed friction} --- a Rayleigh drag on the
+\emph{vorticity}, with $C_f$ the bottom drag coefficient and $H$ the depth.
+
+\subsection{Erodible banks \deck{19}}
+\begin{equation}
+  \boxed{\;\frac{\partial\po}{\partial t}
+  \;=\;\frac{\varepsilon\,C_f\,U_0}{b}\bigl(\pt-\po\bigr)\;}
+  \label{eq:bank-dim}
+\end{equation}
+The deck prints this for the $+b$ bank only; the $-b$ bank obeys the same law, which the
+$y\to-y$ symmetry of the base state requires. \notdeck{} for the $\ph$ copy.
+
+\paragraph{Friction and erosion are different equations.} This is worth stating
+explicitly because both carry $C_f$ and are easy to conflate:
+\begin{center}\small
+\begin{tabular}{lll}
+\toprule
+ & \textbf{bed friction} & \textbf{bank erosion}\\
+\midrule
+acts on   & interior vorticity $\zt$ & bank streamfunctions $\po,\ph$\\
+lives in  & a term inside \eqref{eq:vort-dim} & the separate equation \eqref{eq:bank-dim}\\
+rate      & $C_f(U_0+\Delta)/H$ & $\varepsilon C_f U_0/b$\\
+extra factor & --- & erodibility $\varepsilon$\\
+speed used & $U_0+\Delta$ (centre) & $U_0$ (bank)\\
+role      & \emph{dissipation}: damps the disturbance & \emph{relaxation}: pulls the
+bank toward the interior\\
+\bottomrule
+\end{tabular}
+\end{center}
+Only \eqref{eq:bank-dim} closes the feedback loop. Pages 12--18 hold the banks rigid and
+pose a \emph{forced} problem; page 19 releases them and the problem becomes unstable.
+
+% ==================================================================
+\section{Non-dimensionalisation}
+\label{sec:nondim}
+
+Lengths in $b$, speeds in $U_0+\Delta$, time in $b/(U_0+\Delta)$.
+
+\paragraph{The time unit is not free.} The deck never states it, but it is pinned by the
+deck's own two statements: under $t\to t\,b/(U_0+\Delta)$ the friction coefficient of
+\eqref{eq:vort-dim} becomes $C_f(U_0+\Delta)T/H$, and this equals the sidebar's
+$\gamma=C_f b/H$ \emph{only} for $T=b/(U_0+\Delta)$. Then \deck{12--20}
+\begin{equation}
+  \boxed{\;\ks=kb,\qquad D=\frac{\Delta}{U_0+\Delta},\qquad \gamma=\frac{C_f b}{H},
+  \qquad E=\varepsilon C_f\frac{U_0}{U_0+\Delta}=\varepsilon C_f(1-D)\;}
+\end{equation}
+and the base jet is $\bar u^{*}=1-Dy^{2}$, so
+$\bar\psi^{*}(y)=-\bigl(y-Dy^{3}/3\bigr)$ and $|\bar\psi^{*}(\pm b)|=1-D/3$.
+
+\paragraph{Four numbers, not nine.} $b,H,U_0,\Delta,C_f,\varepsilon$ never appear
+individually anywhere in the integration --- only through $\{\ks,D,\gamma,E\}$. The
+package's CONFIG therefore exposes exactly those.
+
+% ==================================================================
+\section{What Dedalus integrates (1-D)}
+
+The deck is entirely normal-mode and steady-state; it contains no time integration. This
+package supplies one. \notdeck{} for the periodic domain, $N_x$, $\mathrm dt$, $t_{\rm end}$
+and Dedalus itself.
+
+Two changes of form, both exact for the single harmonic the runs contain:
+$-k^{2}\pt\to\dx^{2}\pt$ in \eqref{eq:zeta}, and $\dx$ for $ik$. The state is
+$(\po,\pt,\ph)$ on one periodic $x$-basis --- the three ``levels'' \emph{are} the
+$y$-direction, so there is no second dimension. Hence \emph{1-D}.
+
+\begin{align}
+  \zt &= \frac{\po+\ph-2\pt}{b^{2}} + \dx^{2}\pt
+  &&\text{\deck{9}, operator form \notdeck}\\[2pt]
+  \dt\zt + \dx\zt + 2D\,\dx\pt + \gamma\,\zt &= 0
+  &&\text{\deck{10}, nondimensional}\\[2pt]
+  \dt\po + E\,\po - E\,\pt &= 0,\qquad
+  \dt\ph + E\,\ph - E\,\pt = 0
+  &&\text{\deck{19}}
+\end{align}
+$\zt$ is a \emph{linear combination of the state}, so \code{dt(zeta2)} is handed to
+Dedalus directly and it builds the mass matrix itself --- no hand-elimination of
+$\dt\po,\dt\ph$ is needed. (An earlier version did eliminate them by hand into six terms;
+the two forms agree to $1.4\times10^{-15}$, and the unexpanded one is the one a reader
+recognises as p.10.)
+
+Every term is linear and treated implicitly (SBDF2), so $\mathrm dt$ is an accuracy
+choice, not a CFL limit.
+
+\subsection{Initial condition: the forced steady state}
+\label{sec:ic}
+Not a free choice. Pages 12--16 and 18 are titled ``Forced steady state'' /
+``Forced-dissipative steady state'', p.11 states the closure as
+$\hat\psi_2=f\,\hat\psi_1$, and pp.17--18 show the same thing in foam and dye: a
+\emph{rigid carved wavy channel} with water running through it. So the initial-value
+problem the deck actually poses is \emph{take that steady state, then switch the banks
+from rigid to erodible and watch}.
+
+p.11 never writes $f$. Setting $W=0$ (steady) in the p.10 balance with
+$\hat\psi_1=\hat\psi_3$:
+\begin{equation}
+  (i\ks+\gamma)\bigl[2\hat\psi_1-(2+\kss)\hat\psi_2\bigr]+2iD\ks\hat\psi_2=0
+  \;\;\Longrightarrow\;\;
+  \boxed{\;f=\frac{\hat\psi_2}{\hat\psi_1}
+  =\frac{2(i\ks+\gamma)}{(2+\kss)(i\ks+\gamma)-2iD\ks}\;}
+  \label{eq:f}
+\end{equation}
+\notdeck{} for the algebra; the \emph{statement} $\hat\psi_2=f\hat\psi_1$ is p.11.
+At $\gamma=0$ this collapses to $f=2/(2+\kss-2D)$, which is exactly the p.14 box:
+$|\hat\psi_2|>|\hat\psi_1|$ iff $\kss<2D$. The run then starts from
+\begin{equation}
+  \po=\ph=A_0\cos(\ks x),\qquad
+  \pt=\mathrm{Re}\bigl[f\,A_0e^{i\ks x}\bigr].
+\end{equation}
+This state is \emph{not} an eigenmode of the p.19 problem, so the dynamics still has to
+find the growing mode rather than be handed it.
+
+\paragraph{A free null test.} Set $E=0$ (i.e.\ $\varepsilon C_f=0$): the banks freeze,
+and since $\pt$ already sits at its forced steady value nothing whatever evolves.
+Measured: $\max|\psi_j(t)-\psi_j(0)|\sim10^{-16}$, growth rate $0.000000$. That confirms
+both that the initial condition really is the p.12--18 steady state and that erosion is
+the sole engine.
+
+% ==================================================================
+\section{Dispersion relation}
+\label{sec:disp}
+
+p.19 prints only ``$M(\omega)[\hat\psi_1;\hat\psi_2]=0\Rightarrow\det M=0$''. The entries
+are never written out, so the following is \notdeck{} --- derived here by eliminating
+$\hat\psi_1$ between the bank law and the centre balance. With $W=-i\omega^{*}$:
+\begin{align}
+  \text{centre \deck{9}+\deck{10}:}\quad&
+  (W+i\ks+\gamma)\bigl[2\hat\psi_1-(2+\kss)\hat\psi_2\bigr]+2iD\ks\hat\psi_2=0\\
+  \text{bank \deck{19}:}\quad& (W+E)\hat\psi_1=E\hat\psi_2
+\end{align}
+Eliminating $\hat\psi_1$ gives a quadratic in $W$:
+\begin{equation}
+  \boxed{\;(2+\kss)W^{2}+A_1W+A_0=0,\quad
+  \begin{aligned}
+    A_1&=(2+\kss)(i\ks+\gamma+E)-2iD\ks-2E\\
+    A_0&=E\bigl[\kss(i\ks+\gamma)-2iD\ks\bigr]
+  \end{aligned}\;}
+  \label{eq:quad}
+\end{equation}
+and $\omega^{*}=iW$. The growth rate and phase speed are
+\begin{equation}
+  \sigma=\mathrm{Im}\,\omega^{*},\qquad c=\frac{\mathrm{Re}\,\omega^{*}}{\ks}.
+\end{equation}
+\code{03\_verify.py} asserts \eqref{eq:quad} against the Dedalus IVP; they agree to seven
+decimals.
+
+\paragraph{Branch continuation matters.} Near $\ks\sim\gamma$ the two roots approach each
+other, and picking ``the one with larger $\mathrm{Im}\,\omega$'' jumps between branches.
+\code{bank\_branch} therefore starts from the analytic small-$\ks$ limit
+$W\simeq iED\ks/\gamma$ and tracks by proximity.
+
+\paragraph{Both $\sigma$ and $c$ scale with $E$.} Hence with the assumed $\varepsilon C_f$.
+The growth \emph{band}, the sign of $c$, the $\hat\psi_2/\hat\psi_1$ ratios and the $\ks$
+of the peak do not. $\varepsilon$ is never defined and never given a value in the deck ---
+it appears only inside the product $\varepsilon C_fU_0/b$ --- so \code{eps\_Cf}$=0.5$ is an
+\textbf{assumption}, not a citation and not a fit.
+
+% ==================================================================
+\section{The movie panels}
+
+Four rows. \textbf{No normalisation anywhere}: the curves are
+$\psi_j=\bar\psi(y_j)+\psi_j'(x,t)$ in their own units, with fixed axis limits for the
+whole movie, so what appears to grow is what actually grows. The vertical separation of
+the three curves \emph{is} $\bar\psi(y_j)$, computed from the printed $\bar u$ --- not an
+invented offset.
+
+\subsection{Row 1 --- the three streamfunctions}
+$\psi_1,\psi_2,\psi_3$ against $x$, offset by
+$\bar\psi^{*}(y_j)=-\bigl(y_j-Dy_j^{3}/3\bigr)$, i.e.\ $\mp(1-D/3)$ at the banks and $0$
+at the centre. $\psi_1$ and $\psi_3$ \emph{are} the channel walls; $\psi_2$ is the
+interior response.
+
+\subsection{Row 2 --- banks coloured by the local momentum flux}
+\label{sec:flux}
+p.16 prints an $x$-\emph{averaged} statement:
+\begin{equation}
+  \frac{\partial}{\partial y}\langle u'v'\rangle\;\simeq\;-\langle v_2'\zt\rangle
+  \;=\;\frac{D\gamma}{2b}\langle\zt^{2}\rangle\;>\;0
+  \qquad\deck{16}
+  \label{eq:p16}
+\end{equation}
+Row 2 drops the average and colours each bank by the \emph{local} eddy vorticity flux,
+whose $x$-mean is exactly the deck's quantity:
+\begin{equation}
+  \boxed{\;q(x,t)=-\,v_2'(x,t)\,\zt(x,t),\qquad
+  \text{top bank}\;+b\,q,\quad\text{bottom bank}\;-b\,q\;}
+\end{equation}
+The opposite signs are not a choice: $u'v'$ is odd in $y$ for the sinuous mode, which is
+what the arrows on pp.16/18/19 assert. Both factors are spectral on the periodic grid:
+\begin{equation}
+  v_2'=\dx\pt
+  \quad\notdeck,\qquad
+  \zt=\frac{\po+\ph-2\pt}{b^{2}}+\dx^{2}\pt .
+\end{equation}
+$v_2'$ is used by p.16 but \emph{never defined} in the deck; $v'=\dx\psi'$ is the standard
+reading and is what is used here. No $u'$ at the banks is ever needed or invented --- the
+deck gives no expression for it.
+
+\paragraph{Colour scale.} \code{SymLogNorm} with
+$\text{linthresh}=\max|f|/60$, symmetric about zero. The flux is \emph{quadratic} in the
+amplitude, so it spans twice as many decades as the meander does; on a linear scale every
+early frame would be flat.
+
+\paragraph{A discrepancy in the deck, recorded not hidden.} The right-hand side of
+\eqref{eq:p16} is printed with coefficient $D\gamma/2b$, but carrying the steady-state
+algebra of the p.10 balance through gives $\gamma/2D$. These are not the same number.
+\code{momentum\_flux()} returns both the middle expression $-\langle v_2'\zt\rangle$ and
+the deck's right-hand side and plots them together, but \code{03\_verify.py} asserts only
+the \emph{sign} --- because the sign is all the deck actually asserts.
+
+\subsection{Row 3 --- growth of $|\hat\psi_2|$}
+The measured amplitude against the analytic rate. $\sigma$ and $c$ are fitted from the
+late-time record:
+\begin{equation}
+  \sigma=\frac{\mathrm d}{\mathrm dt}\ln|\hat\psi_2|,\qquad
+  c=-\frac{1}{\ks}\frac{\mathrm d}{\mathrm dt}\arg\hat\psi_2,
+\end{equation}
+both over $t\ge0.6\,t_{\rm end}$. The fit also returns the maximum deviation of
+$\ln|\hat\psi_2|$ from the straight line over that window: if the subdominant root has not
+yet died the fit is curved and the residual says so, rather than the caller silently
+trusting a blended rate. The dashed reference line is $|\hat\psi_2|(0)e^{\sigma_{\rm a}t}$
+with $\sigma_{\rm a}$ from \eqref{eq:quad}, so the two can be compared by eye.
+
+\subsection{Row 4 --- the dispersion relation \deck{20}}
+$\sigma(\ks)$ and $c(\ks)$ along the bank branch of \eqref{eq:quad}, with this run's $\ks$
+marked. The two headline runs sit on opposite sides of the resonance condition:
+\begin{center}\small
+\begin{tabular}{lll}
+\toprule
+$\ks=0.30$ & $\kss=0.09<2D=1.0$ & resonant: grows, marches \emph{upstream} \deck{12, top}\\
+$\ks=1.50$ & $\kss=2.25>2D=1.0$ & non-resonant: decays, $\sim$stationary \deck{12, bottom}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ==================================================================
+\section{What is \emph{not} from the deck}
+
+\begin{itemize}\itemsep2pt
+\item The time integration itself: periodic domain, $N_x$, $\mathrm dt$, $t_{\rm end}$,
+      Dedalus. All 21 pages are normal-mode or steady-state.
+\item A numerical value for $\varepsilon$ (\S\ref{sec:disp}).
+\item The operator forms $\dx^{2}$, $\dx$ in place of $-k^{2}$, $ik$ (equivalent for one
+      mode, more general here).
+\item The explicit entries of $M(\omega)$ and the quadratic \eqref{eq:quad}; p.19 prints
+      only $\det M=0$.
+\item The closure $f$ of \eqref{eq:f}; p.11 states that $\hat\psi_2=f\hat\psi_1$ but never
+      writes $f$.
+\item The definition $v'=\dx\psi'$ (\S\ref{sec:flux}).
+\item The $\ph$ bank equation (symmetry-required, but printed only for $\po$).
+\end{itemize}
+
+The initial condition is \emph{not} on this list: it is the deck's own pp.12--18 forced
+steady state, which is the state the flume of pp.17--18 is physically in before the banks
+are released.
+
+\paragraph{Provenance.} Notation table and page-by-page mapping: \code{docs/lit\_review.md}.
+Verification gate: \code{postprocessing/03\_verify.py}, which runs before any figure script
+and aborts the build if the model no longer reproduces the deck.
+
+\end{document}
