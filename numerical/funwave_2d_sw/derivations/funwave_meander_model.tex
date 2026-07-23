@@ -30,8 +30,9 @@ momentum equations, every closure, how a sinuous channel is prescribed on a Cart
 grid, the boundary conditions (hydrodynamic and sedimentary), the initial condition, the
 bed-evolution equation, and the bank treatment. Numbers quoted are the values actually
 in \code{CONFIG}; the figures are generated from the driver itself by
-\code{make\_figs.py}, so this document cannot drift from the code. What the model does
-\emph{not} contain is stated in \S\ref{sec:notcontain}, because that bounds every result.
+\code{make\_figs.py}, so this document cannot drift from the code. How the secondary flow is
+parameterised is \S\ref{sec:secondary}; the full list of approximations that bounds every
+result is \S\ref{sec:approx}.
 \end{abstract}
 
 \tableofcontents
@@ -697,9 +698,9 @@ the decoupled scheme of \S\ref{sec:decouple} by finite-differencing the nonlinea
 \end{enumerate}
 This is a genuine, numerically-obtained dispersion relation for the \emph{bed}, which is
 the quantity that bar theory predicts and that selects $\lambda$. It requires the closures
-of \S\ref{sec:notcontain}: with $A_s=0$ and no slope deflection there is no free bar mode
-to find, so \eqref{eq:slopedefl}--\eqref{eq:secondary} are a prerequisite, not an optional
-refinement.
+of \S\ref{sec:secondary}: with $A=0$ (stock FUNWAVE) and no slope deflection there is no free
+bar mode to find, so \eqref{eq:slopedefl}--\eqref{eq:secondary} are a prerequisite --- now
+implemented --- not an optional refinement.
 
 % =====================================================================
 \section{The secondary-flow closures (gap 1)}
