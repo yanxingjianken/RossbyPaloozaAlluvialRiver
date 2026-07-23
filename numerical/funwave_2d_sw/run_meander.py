@@ -351,6 +351,34 @@ def taper(x, cfg):
     return 0.5 * (1.0 - np.cos(np.pi * np.clip((d - s) / ramp, 0.0, 1.0)))
 
 
+def section_x(lam, cfg, n_sec=2):
+    """Down-valley x of interior bend apexes.  For a sine-generated curve the apex (peak |kappa|,
+    where theta=0 so the tangent points down-valley) is exactly where a FIXED-x grid slice cuts
+    the channel transversely -- the natural yOz cross-section.  Returns up to n_sec apex x-values
+    of ALTERNATING curvature sign, spread over the interior, so the same locations mark the xOy
+    movie (grey dashed) and cut the yOz movie -- both always refer to the same place."""
+    xc, _, _, _, _, kap = centreline(lam, cfg)
+    buf, L = cfg["buffer_len"], reach_length(cfg)
+    ak = np.abs(kap)
+    inr = (xc > buf) & (xc < L - buf)
+    # local maxima of |kappa| inside the reach = apexes
+    ext = np.zeros_like(ak, bool)
+    ext[1:-1] = (ak[1:-1] >= ak[:-2]) & (ak[1:-1] > ak[2:]) & (ak[1:-1] > 0.5 * ak[inr].max())
+    idx = np.where(ext & inr)[0]
+    apex = [(float(xc[i]), float(np.sign(kap[i]))) for i in idx]
+    # walk from the interior centre outward, taking alternating signs
+    if not apex:
+        return []
+    apex.sort(key=lambda t: abs(t[0] - 0.5 * L))
+    out, signs = [], set()
+    for x, sg in apex:
+        if sg not in signs:
+            out.append(x); signs.add(sg)
+        if len(out) >= n_sec:
+            break
+    return sorted(out)
+
+
 def reach_length(cfg):
     """Down-valley domain length -- the SAME for every run, by construction."""
     return cfg["lam_ref"] * cfg["n_bends_ref"]
