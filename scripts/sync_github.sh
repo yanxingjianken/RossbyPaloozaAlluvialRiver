@@ -68,7 +68,9 @@ fi
 
 # --- commit (only if there is something) + push -----------------------------
 if ! git diff --cached --quiet; then
-    git commit -q -m "auto-sync: $(date '+%Y-%m-%d %H:%M') @$(hostname -s)" >> "$LOG" 2>&1
+    # NOTE: use "on <host>", NOT "@<host>" -- dolma is this HPC's hostname, but on GitHub
+    # "@dolma" renders as a mention of the unrelated user github.com/dolma.
+    git commit -q -m "auto-sync: $(date '+%Y-%m-%d %H:%M') on $(hostname -s)" >> "$LOG" 2>&1
 fi
 if [ "$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)" -gt 0 ]; then
     if git push -q origin main >> "$LOG" 2>&1; then
