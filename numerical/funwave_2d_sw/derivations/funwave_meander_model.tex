@@ -558,8 +558,10 @@ listed here; results can only be read through this list.
 \begin{enumerate}\itemsep1pt
   \item \textbf{Hydrostatic pressure}, $p=\rho g(\eta-z)$: the long-wave limit $L\gg H$.
         Vertical accelerations are neglected.
-  \item \textbf{Depth-averaged}: no vertical coordinate. Secondary (helical) circulation
-        cannot exist, so \eqref{eq:secondary} is identically absent and $A_s=0$.
+  \item \textbf{Depth-averaged}: no vertical coordinate, so secondary (helical) circulation
+        cannot be \emph{resolved}. It is instead \emph{parameterised} through the two Ikeda
+        closures of \S\ref{sec:secondary} --- drag modulation \eqref{eq:cdeff} and bedload
+        deflection \eqref{eq:secondary} --- rather than being absent ($A=2.89$, not $A=0$).
   \item \textbf{Non-dispersive}: \code{DISPERSION = F} drops all Boussinesq terms
         ($\Gamma_1=\Gamma_2=0$). Valid because $kH\ll1$ for a river.
   \item \textbf{Non-rotating}, $f=0$. Any ``Rossby wave'' here is a shear-$\beta$ vortical
@@ -570,8 +572,10 @@ listed here; results can only be read through this list.
         pickup \eqref{eq:pickup}, Cao deposition \eqref{eq:depo}, Meyer-Peter--M\"uller
         bedload \eqref{eq:bedload}, Soulsby settling. Each carries its own calibration
         range; none is derived.
-  \item \textbf{Bedload direction $=$ depth-averaged flow direction}. No gravitational
-        deflection down the transverse slope \eqref{eq:slopedefl}.
+  \item \textbf{Bedload direction} $=$ depth-averaged flow direction, \emph{plus} the
+        secondary-flow deflection \eqref{eq:secondary} toward the inner bank and the
+        gravitational return down the transverse slope \eqref{eq:slopedefl}; their balance is
+        Ikeda's equilibrium tilt (\S\ref{sec:secondary}).
   \item \textbf{Smagorinsky eddy viscosity} \eqref{eq:smag} as the sole lateral closure.
   \item \textbf{Avalanching is instantaneous} relaxation to $\tan\phi$ once per
         \code{Aval\_interval}; no soil mechanics, no pore pressure, no cohesion.
@@ -582,12 +586,13 @@ listed here; results can only be read through this list.
 \label{sec:approx-time}
 This is the largest approximation and it is deliberate.
 \begin{enumerate}\setcounter{enumi}{10}\itemsep1pt
-  \item \textbf{Morphological acceleration}, $\mathrm{MF}=1000$ in \eqref{eq:mf}. The bed
-        is advanced a thousand times faster than the flow that drives it. Formally this
+  \item \textbf{Morphological acceleration}, $\mathrm{MF}=5$ in \eqref{eq:mf}. The bed
+        is advanced five times faster than the flow that drives it. Formally this
         assumes the flow is slaved to the bed --- valid when the bed moves negligibly over
         a hydrodynamic adjustment time, which \S\ref{sec:timescales} supports
         ($T_{\rm bed}/T_{\rm flow}\sim10^8$) but which \textbf{must be verified by an
-        MF-convergence sweep}, not assumed.
+        MF-convergence sweep}, not assumed. ($\mathrm{MF}=50$ blew up on the flow-driven
+        inner-scour hole before the closures of \S\ref{sec:secondary} redirected it.)
   \item \textbf{Time-averaged Exner forcing}: $P$ and $D$ are averaged over
         \code{Morph\_interval} $=200\ \mathrm s\approx10\,T_c$ before they move the bed
         \eqref{eq:exner}. This is exactly the ``average over the fast timescale, then
@@ -697,34 +702,64 @@ to find, so \eqref{eq:slopedefl}--\eqref{eq:secondary} are a prerequisite, not a
 refinement.
 
 % =====================================================================
-\section{What the model does not contain}
-\label{sec:notcontain}
+\section{The secondary-flow closures (gap 1)}
+\label{sec:secondary}
 
-Two closures are absent from \eqref{eq:bedload}, and together they are what builds a point
-bar:
-\begin{align}
-  \text{transverse bed-slope deflection}\qquad
-    &q_{b,n}=|\bm q_b|\left[\sin\alpha-\frac{1}{f(\theta)}\dn z_b\right], \label{eq:slopedefl}\\
-  \text{secondary (helical) flow}\qquad
-    &\tan\delta=A_s\frac{H}{R_s} . \label{eq:secondary}
-\end{align}
-Stock FUNWAVE directs bedload along $\operatorname{atan2}(v,u)$ and nothing else, so
-$A_s=0$ and there is no gravitational return of grains down the transverse slope. In the
-classification of Ikeda, Parker \& Sawai (1981) this is their $A=0$ case, which they
-identify with \emph{incised} rather than alluvial meanders; their alluvial value is
-$A\approx2.89$.
+A depth-averaged model has no vertical coordinate, so the helical secondary flow of a bend
+cannot arise on its own. Its two morphological effects are therefore \emph{parameterised}
+following Ikeda, Parker \& Sawai (1981), and both are now active (stock FUNWAVE is the $A=0$
+``incised'' limit; the alluvial value is $A=2.89$, Suga 1963). Together they are what turns
+the free-vortex \emph{inner}-bank scour of a bare depth-averaged model into the outer-bank
+scour and inner point bar of a real alluvial river.
 
-\begin{quote}\itshape
-Standing prediction, registered before the runs: outer-bank scour \emph{without} an inner
-point bar. \code{postprocessing/01\_validate.py} reports the measured inner/outer bed
-change split against it.
-\end{quote}
+\paragraph{Momentum half (Ikeda eq.~3b), \code{run\_meander.py}, \code{FRICTION\_MATRIX}.}
+The tangential-momentum balance
+$U\ds u' = -g\ds\xi' - (C_fU^2/H)(2u'/U-\xi'/H+\eta'/H)$
+carries the secondary flow only through the last friction term, closed by the equilibrium
+bed tilt $\eta'/H=-A\,\mathcal C\,n$. FUNWAVE already solves the other two terms (its
+$-C_d u|u|$ \emph{is} $2u'/U$; its $-g\,\ds\eta$ \emph{is} $-\xi'/H$), so only $\eta'/H$ is
+added --- as a spatial modulation of the drag,
+\begin{equation}
+  C_d^{\rm eff}(x,y)=C_d\bigl(1+A\,\kappa\,n\bigr),
+  \label{eq:cdeff}
+\end{equation}
+in the code's $(\kappa,n)$ sign convention (outer bank $\kappa n<0$, verified against the
+centre-of-curvature distance in \code{tests/test\_bathy.py}~7b). There $C_d^{\rm eff}<C_d$,
+the flow accelerates outward, and the free-vortex inner-fast tendency is opposed. This term
+is \emph{weak} at $R/W\!\sim\!3$: the friction-adjustment/wavelength factor
+$k_f/\sqrt{k_f^2+k_\lambda^2}\approx0.17$ (with $k_f=2C_f/H$, $k_\lambda=2\pi/\lambda$) caps
+the redistribution, so the steady outer/inner apex speed ratio moves only
+$0.63\!\to\!0.66$ --- it reduces but does not reverse the free vortex. The bar therefore
+needs the bedload half.
 
-Also absent: any vertical structure (the model is depth-averaged, hence
-\eqref{eq:secondary} cannot arise on its own); rotation ($f=0$, so ``Rossby wave''
-here can only mean a shear-$\beta$ vortical wave, never a planetary one); along-channel
-depth variation in the initial bed ($h$ depends on $n$ only, plus the uniform tilt --- any
-$h(x)$ structure must \emph{emerge} from \eqref{eq:exner}); and width variation as an
+\paragraph{Bedload half (Ikeda eq.~6) --- the bar-building term, \code{mod\_sediment.F}.}
+The point bar is a \emph{bedload} feature. The secondary flow rotates the near-bed velocity,
+hence the bedload vector, toward the inner bank by
+\begin{equation}
+  \delta=\frac{A\,\kappa\,H}{f(\theta)},\qquad f(\theta)=A_{\rm bl}\sqrt\theta,\quad
+  \theta=\frac{\tau_b}{(s-1)gD_{50}},
+  \label{eq:secondary}
+\end{equation}
+added to the flow direction, with $\kappa(x,y)$ read from a curvature field. Balanced against
+the transverse bed-slope (Talmon 1995) return flux
+\begin{equation}
+  q_{b,n}=|\bm q_b|\Bigl[\sin\delta-\tfrac{1}{f(\theta)}\dn z_b\Bigr],
+  \label{eq:slopedefl}
+\end{equation}
+the transverse balance $q_{b,n}=0$ gives $\dn z_b=-A\,\kappa\,H$ --- Ikeda's equilibrium tilt
+(deep OUTER, shallow INNER), \emph{independent of} $f(\theta)$, which cancels. Because it is a
+forcing (not diffusion), the deflection builds the bar from a flat bed, where the Talmon term
+alone would only diffuse toward flat; the Talmon term is retained as the down-slope stabiliser
+that arrests the scour hole.
+
+\code{postprocessing/01\_validate.py} reports the measured inner/outer bed-change split, and
+\code{04\_xsection.py} shows the transverse profile evolving. The prediction these closures
+make is outer scour \emph{with} an inner point bar; the stock ($A=0$) model scours the inner
+bank instead.
+
+Still absent: any resolved vertical structure; rotation ($f=0$, so ``Rossby wave'' here is a
+shear-$\beta$ vortical wave, never a planetary one); along-channel depth variation in the
+initial bed (any $h(x)$ must \emph{emerge} from \eqref{eq:exner}); and width variation as an
 independent parameter.
 
 \end{document}
