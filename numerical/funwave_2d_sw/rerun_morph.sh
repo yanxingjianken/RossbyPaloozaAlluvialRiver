@@ -11,11 +11,15 @@ rm -f MORPH_RERUN_DONE MORPH_RERUN_FAILED
 B1=runs/lam1040_C3p00e-3_U0p85_hf1p856_D50500um_MF5
 B2=runs/lam1560_C3p00e-3_U0p85_hf1p960_D50500um_MF5
 
-run_one() {  # $1 = run dir
-  local base; base=$(readlink -f "$1")
+run_one() {  # $1 = run dir.  Rank count is PER-CASE: read PX*PY from the input (B1=64, B2=128);
+             # hardcoding 64 makes FUNWAVE STOP with "processors /= Px*Py" on the larger grid.
+  local base px py nr; base=$(readlink -f "$1")
+  px=$(grep -E "^PX" "$base/morph/input.txt" | grep -oE "[0-9]+")
+  py=$(grep -E "^PY" "$base/morph/input.txt" | grep -oE "[0-9]+")
+  nr=$((px * py))
   rm -rf "$base/morph_test" "$base/morph/output" "$base/morph/input_test.txt"
   mkdir -p "$base/morph/output"
-  ( cd "$base/morph" && mpirun --oversubscribe -np 64 --mca btl_vader_single_copy_mechanism none \
+  ( cd "$base/morph" && mpirun --oversubscribe -np "$nr" --mca btl_vader_single_copy_mechanism none \
        "$EXE" input.txt > run.log 2>&1 )
 }
 
