@@ -445,3 +445,37 @@ ReductionParameter not defined, Default:
   MaxTotalU   PhaseS      Froude      WetDryMass
   0.1242E+01  0.5397E+01  0.2302E+00  0.0000E+00
   TideWest    TideEast      TideSouth    TideNorth
+  0.2251E+00 -0.2251E+00  0.0000E+00  0.0000E+00
+   PRINTING FILE NO.    28  TIME/TOTAL:     6750.042 /    7686.969
+ ----------------- STATISTICS ----------------
+  TIME        DT
+  0.7000E+04  0.1953E+00
+  MassVolume  Energy      MaxEta      MinEta      Max U       Max V 
+ -0.1292E+06  0.1961E+08  0.2254E+00 -0.2479E+00  0.1165E+01  0.5884E+00
+  MaxTotalU   PhaseS      Froude      WetDryMass
+  0.1263E+01  0.5395E+01  0.2340E+00  0.0000E+00
+  TideWest    TideEast      TideSouth    TideNorth
+  0.2251E+00 -0.2251E+00  0.0000E+00  0.0000E+00
+   PRINTING FILE NO.    29  TIME/TOTAL:     7000.177 /    7686.969
+ ----------------- STATISTICS ----------------
+  TIME        DT
+  0.7250E+04  0.1951E+00
+  MassVolume  Energy      MaxEta      MinEta      Max U       Max V 
+ -0.1291E+06  0.1961E+08  0.2254E+00 -0.2493E+00  0.1159E+01  0.5883E+00
+  MaxTotalU   PhaseS      Froude      WetDryMass
+  0.1242E+01  0.5397E+01  0.2301E+00  0.0000E+00
+  TideWest    TideEast      TideSouth    TideNorth
+  0.2251E+00 -0.2251E+00  0.0000E+00  0.0000E+00
+   PRINTING FILE NO.    30  TIME/TOTAL:     7250.147 /    7686.969
+ ----------------- STATISTICS ----------------
+  TIME        DT
+  0.7500E+04  0.1953E+00
+  MassVolume  Energy      MaxEta      MinEta      Max U       Max V 
+ -0.1291E+06  0.1961E+08  0.2254E+00 -0.2493E+00  0.1149E+01  0.5884E+00
+  MaxTotalU   PhaseS      Froude      WetDryMass
+  0.1259E+01  0.5375E+01  0.2343E+00  0.0000E+00
+  TideWest    TideEast      TideSouth    TideNorth
+  0.2251E+00 -0.2251E+00  0.0000E+00  0.0000E+00
+   PRINTING FILE NO.    31  TIME/TOTAL:     7500.096 /    7686.969
+ Simulation takes   1157.1752146819999      seconds
+ Normal Termination!

@@ -15,9 +15,9 @@ DX = 2.5
 DY = 2.5
   ! ---------------- INITIAL CONDITION ----------------
 INI_UVZ = T
-ETA_FILE = @INI@/eta.txt
-U_FILE = @INI@/u.txt
-V_FILE = @INI@/v.txt
+ETA_FILE = ../spinup/output/eta_00031
+U_FILE = ../spinup/output/u_00031
+V_FILE = ../spinup/output/v_00031
   ! ---------------- STEADY DISCHARGE IN / STAGE OUT ----------------
   ! TIDE_BC nudges ETA, U *and* V toward these values inside a 30-cell sponge at each end
   ! (mod_tide.F:323-330).  Every component MUST be given at BOTH ends: TideEast_U defaults
