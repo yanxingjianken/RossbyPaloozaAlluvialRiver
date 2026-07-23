@@ -1,78 +1,62 @@
-# PLAN — FUNWAVE nonlinear SW meander with a RIGID bed and MIGRATING banks
+# PLAN (VERIFIED) — FUNWAVE nonlinear-SW meander, erodible banks, spin-up + evolution
 
-**Flip of the funwave_2d_sw experiment.**  Previously: mobile bed (Exner point bar), FIXED banks
-(always-wet shelf froze them).  Now: **rigid (unchanging) non-flat bed, MOBILE banks** — carve a
-wavy channel with two straight buffers, spin the full nonlinear shallow-water flow up **from
-rest**, then let **bank erosion + deposition** migrate the channel, and watch the bank *and* the
-flow (**total and anomaly**) evolve.  Rossby-vs-gravity is deferred to a linearized dispersion
-diagnosis later (the swe_stability.py / Ikeda work); the priority here is the nonlinear SW run.
+Full nonlinear shallow water (NSWE, DISPERSION=F) on a carved sine-generated channel with two
+straight buffers and an always-wet shelf; **interior fully erodible end-to-end**, banks retreat by
+fluvial toe erosion + slumping; watch the bank *and* the flow (**total + anomaly**) develop and
+evolve. Rossby-vs-gravity is deferred to the linearized dispersion in `meander_migration/`.
 
----
+**Verification (3 independent reviewers, `academic-paper:plan` discipline, read the real source):**
+- **Governing math — CORRECT.** NSWE (mass+2 mom, Γ₁=Γ₂=0); all sediment closures verified
+  formula/sign/unit-correct against `mod_sediment.F`: log-law bed shear (`:1372`), van Rijn pickup
+  (`:1401`), Cao deposition (`:1521`, always-on sink), MPM bedload + Ikeda + Talmon (`:1433-1478`),
+  Exner (`:1685`). Bank-erosion applicability sound: pickup/bedload depend on `(|u|,H)` not slope →
+  valid at the toe; the steep face is handled by the slope-triggered avalanche rule (`:1741`).
+- **Boundaries — AUDITED** (table below).
+- **Feasibility — CONDITIONAL.** Four gated risks (below); nothing infeasible.
 
-## 1. Geometry (reuse the built machinery)
-- Curvature-defined sine-generated centreline (C0 = A k²), one wavelength case first (λ=1040 m),
-  interior + **two straight buffer reaches** at the ends (sediment-flux BC artefact absorber).
-- Non-flat cross-section `h(n)` = the constant-PV-gradient bed (unchanged from before).
-- **Always-wet shelf** (`h_plain=0.20 m`) beyond the bank toe — REQUIRED: an oblique wet/dry
-  bank is what broke every earlier run; the shelf keeps the waterline off the staircased bank.
+## 1. Initial condition — the "spin-up" done SAFELY (key correction)
+**Literal from-rest is wrong twice** (both reviewers, independently): with `TideBcType=CONSTANT`
+(no `Time_ramp` — wavemaker-only), imposing `TideWest_U/ETA` onto `u=v=η=0` closes >99.9% of the
+gap in the FIRST timestep — a **Heaviside step = dam-break startup bore**, worse than the
+acceleration transient that already killed a run at t=963 s. It is also **over-specified**: ETA, U,
+V are all pinned at a subcritical open boundary where only one characteristic should be set.
+**Resolution — start from the analytic BASE flow (`u' = v' = 0`), not from rest.** The IC is the
+normal-flow profile along the local channel tangent (build_case already writes this) = the
+*zeroth-order* flow with **no meander-induced perturbation**. The curvature then forces `u', v'` to
+grow from ~0 to steady — **that is the spin-up the experiment wants** (the *anomaly* spinning up),
+and it sidesteps the bore + over-specification entirely. (Optional tiny broadband η seed to break
+symmetry.) *If literal from-rest is truly required, hand-roll a ramp — 10–20 chained sub-runs
+stepping `TideWest_U/ETA` up over ~0.3 transit, each hot-starting from the previous snapshot (the
+existing spinup→morph hot-start mechanism). Flagged as the harder path; not the default.*
 
-## 2. Rigid bed + mobile banks  (the defining change)
-Use the `Hard_bottom` erodibility field `Zs` to split the domain:
-- **Zs = 0 (rigid)** in the DEEP channel core (`|n| < n_core`) and both buffers → the "non-flat
-  but unchanging bed".
-- **Zs > 0 (erodible)** in the BANK zone (`n_core < |n| < n_toe`) → only the banks erode/deposit.
-- Apply the **buffer/deep-bed sink fix** (freeze `Zb` where `Zs<1`, discard would-be deposition)
-  so the protected bed cannot silently accrete and emerge (that blew the earlier run up).
-- **Fallback (if the split is fiddly):** keep the whole channel erodible (as before) and simply
-  READ OUT the bank signal; the user OK'd "whichever is easier".  Decision deferred to the review.
+## 2. Boundary conditions (audited: IC value | evolution)
+| Boundary | IC value (t=0) | Evolves by |
+|---|---|---|
+| **Inlet (W)** | analytic normal flow: `u=U` along tangent, `v≈0`, `η=+drop/2` | `TIDE_BC` nudges ETA,U,V → TideWest targets inside the 30-cell (75 m) sponge, 3×/step (>99.9%/step at i=1, →0 by i=30) |
+| **Outlet (E)** | `TideEast_ETA=-drop/2`, **`TideEast_U=0`**, V=0 | same nudge; U-target 0 ⇒ damps only what *arrives* → self-adjusting sink, cannot over-extract (U=design drains the reach) |
+| **Banks** | `Depth=h_sec(n)+S(s-s0)`, steepened bank → always-wet shelf `h_plain=0.20`; `H=h_sec≥MinDepth` everywhere; NO MASK_STRUC walls | `UPDATE_MASK` re-tests η vs −Depth + 4 neighbours every sub-stage (free waterline); `Bed_Change=T` + `Avalanche` migrate the topographic toe |
+| **Sediment** | `Zs=0` in the two 1560 m buffers, `Zs=1e6` interior (static) | `FLUX_SCALAR_BC` zeros sed. flux on all 4 boundaries; `Zs` caps erosion only ⇒ buffers accrete (bounded by the buffer sink-freeze, scoped to `Zs<1`) |
 
-**Bank migration mechanism:** outer-bank toe erodes (high near-bank shear), sediment advects and
-deposits on the inner bank → the channel translates laterally.  Same van Rijn pickup + Cao
-deposition + MPM bedload + Exner + avalanching physics as the point-bar run, now acting at the
-banks because that is where `Zs>0`.
+## 3. Gated fixes (from feasibility + math reviews)
+1. **Bank resolution** — assert **≥4 cells across the bank face** before launch (like the R/W assert). If repose-angle (`tanφ=0.7`→1.4 cells) violates it, accept an *erosionally-limited* bank, not a geometric-repose one. Avoids waterline chatter + slump aliasing.
+2. **Buffer-edge Zs is now the ONLY erodibility jump** — **ramp `Zs` smoothly over 5–10 dx** (reuse the `taper()` cosine) instead of a hard step; **track buffer-edge `dZb/dt` as a named diagnostic with an abort threshold** (it can seed a knickpoint).
+3. **Bedload divergence has no TVD limiter** (`:1691`, centered difference) — ringing/checkerboard risk exactly at the toe where `BedFluxX/Y` switches across `Tau_cr,bl`. Watch for it; add `nu_bkg`/hyperdiffusion if it appears (allowed).
+4. **Avalanche relaxes only 1 steepest neighbour / `Aval_interval`** — a multi-directional slump needs several intervals ⇒ set **`Aval_interval` short** vs the first-collapse rate.
+5. **Morph_factor** — MF=5's window was calibrated for point-bar Exner, not slump-dominated retreat; **re-measure empirically once avalanching is on**.
+6. **Mass sink scoping** — confirm the buffer-writer keeps `Zs<1` strictly in the buffers so the erodible interior stays Exner-conservative.
 
-## 3. Initial condition: NOT steady — spin up from rest
-- **IC:** `u = v = 0`, `η = 0` (flat), i.e. `u' = v' = 0`.  (Option: seed a tiny broadband `η`
-  perturbation ~1e-3 m to break symmetry and let any instability select itself.)
-- **Phase 1 — spin-up (rigid, Bed_Change=F):** ramp the inlet discharge (tide-BC) from 0 to
-  design over ~0.3 transit times to avoid a bore, then hold until the flow reaches steady
-  (G1 drift < 5%).  Watch it develop the meander-forced `u', v'` from a flat start.
-- **Phase 2 — erosion ON (Bed_Change=T):** hot-start from the steady flow, turn on sediment,
-  let the banks fully evolve (Morph_factor acceleration).  *Or* keep erosion on throughout if the
-  spin-up is stable with it — the easier of the two, decided in the review.
+## 4. Diagnostics (total AND anomaly — the new science)
+- **Total:** `u,v,|U|,η`; bird's-eye (xOy) + yOz sections.
+- **Anomaly:** `ū(n)=<u_s>_s` (interior-only along-channel mean cross-profile), `u'=u_s−ū`, `v'` →
+  the meander-induced perturbation; bird's-eye of `u',v'` + near-bank `u'_b`.
+- **Bank-toe position** vs time → retreat rate/direction (+ the ≥2-dx-to-shelf guard).
+- **Per-step sediment mass budget** (eroded − deposited − discarded) → migration vs degradation, MEASURED.
 
-## 4. Boundary conditions
-- **Inlet:** steady discharge via TIDE_BC (TidalBcType=CONSTANT), ramped from rest; U, V, η all
-  specified at BOTH ends (TideEast_U default 0 walls the outflow — must be set).
-- **Outlet:** self-adjusting stage sink (TideEast_U=0 as before — it cannot over-extract).
-- **Banks:** topographic + always-wet shelf (free waterline, no wall).
-- **Sediment:** FLUX_SCALAR_BC hard-zeros sediment flux on all 4 boundaries → the two buffers +
-  the sink-freeze absorb it.
+## 5. Stage-0 gate (cheapest de-risk — feasibility's recommendation)
+Before the full 6-bend run: a **STRAIGHT `buffer_len` reach ALONE (no meander)**, analytic-base IC,
+rigid→erodible, ~1000 s, instrumented with max|u|/Froude + bank-toe + mass budget. Isolates
+**bore vs slump-chatter vs interface-pile** in one cheap run. Gate the full run on it.
 
-## 5. Diagnostics (total AND anomaly — the new requirement)
-- **Total flow:** `u, v, |U|, η` fields; bird's-eye (xOy) + yOz cross-sections.
-- **Anomaly flow:** define the mean as the along-channel (s) average of the cross-channel profile,
-  `ū(n) = <u_s>_s`, then `u'(s,n) = u_s - ū(n)`, `v'` similarly → the MEANDER-INDUCED perturbation.
-  Bird's-eye of `u', v'` and the near-bank `u'_b` (the bank-erosion driver).
-- **Bank:** track the bank toe / waterline position vs time → migration rate + direction.
-- **Movies:** (a) planform total flow + bank, (b) planform anomaly `u',v'`, (c) yOz sections.
-
-## 6. Numerics / stability (hyperdiffusion allowed)
-- DISPERSION=F (NSWE), MUSCL-TVD/HLL, CFL≈0.5.
-- Stabilisers if the from-rest transient or the mobile bank chatters: background viscosity
-  `nu_bkg`, Smagorinsky `C_smg`, or a small hyperdiffusion; the user explicitly allows these.
-- Morph_factor (MF=5 start, MF-convergence-checked) for morphological acceleration; Morph_interval
-  regime-aware (bedload-dominated → ~1 T_c).
-
-## 7. Deferred (not this run)
-- Rossby-vs-gravity dominance → linearized dispersion (swe_stability.py, R = β_eff b²/(F²U)),
-  done separately; the nonlinear run here provides the total+anomaly fields to compare against.
-
-## 8. Open questions for the design review
-1. From-rest spin-up: stable with a ramped inlet, or does it need the analytic IC after all?
-2. Rigid-deep-bed + erodible-bank `Zs` split vs always-erodible — which is correct AND easier?
-3. Is bank migration well-posed in FUNWAVE (topographic bank + shelf), or does the protected
-   deep bed / erodible bank interface create a new artefact (like the buffer pile)?
-4. Correct erosion/deposition at the bank toe: is MinDepthPickup low enough, is deposition on the
-   inner bank captured, does avalanching over-smooth the bank?
-5. Anomaly definition: along-channel-s average the right "mean" to subtract?
+## 6. Deferred
+Rossby-vs-gravity dominance → the linearized dispersion (`meander_migration/`, R=β_eff b²/(F²U)=31 →
+vortical/Rossby-dominated). The nonlinear run here supplies the total+anomaly fields to compare.

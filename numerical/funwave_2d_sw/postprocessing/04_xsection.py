@@ -45,9 +45,10 @@ def case(base):
         return None
     x = g["x"]; y = g["y"]
     X, Y = np.meshgrid(x, y, indexing="ij")
-    n, _, _, _, kap = rm.channel_coords(X, Y, float(g["lam"]), CFG)
+    cg = rm.cfg_from_grid(g)
+    n, _, _, _, kap = rm.channel_coords(X, Y, float(g["lam"]), cg)
     secs = []
-    for k, xs in enumerate(rm.section_x(float(g["lam"]), CFG)):
+    for k, xs in enumerate(rm.section_x(float(g["lam"]), cg)):
         i = int(np.argmin(np.abs(x - xs)))
         # inner bank is n*sign(kappa) > 0 (test_bathy 7b); use the apex column's kappa sign
         ks = float(np.sign(kap[i, np.argmax(np.abs(kap[i]))]))
@@ -80,7 +81,7 @@ def main():
     zmax = 0.6
 
     os.makedirs(OUT, exist_ok=True)
-    mp4 = os.path.join(OUT, f"xsection_AB_C{CFG['C0']*1e3:.2f}e-3_MF{CFG['Morph_factor']}.mp4")
+    mp4 = os.path.join(OUT, f"xsection_all_MF{CFG['Morph_factor']}.mp4")
     writer = imageio.get_writer(mp4, fps=args.fps, codec="libx264", quality=8,
                                 macro_block_size=None)
 

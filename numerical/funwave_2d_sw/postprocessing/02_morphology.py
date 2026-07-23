@@ -41,7 +41,7 @@ def case(base):
     if not dep:
         return None
     X, Y = np.meshgrid(g["x"], g["y"], indexing="ij")
-    n, _, _, _, kap = rm.channel_coords(X, Y, float(g["lam"]), CFG)
+    n, _, _, _, kap = rm.channel_coords(X, Y, float(g["lam"]), rm.cfg_from_grid(g))
     return dict(tag=os.path.basename(base), g=g, dep=dep, msk=msk, X=X, Y=Y,
                 n=n, kap=kap, lam=float(g["lam"]), A=float(g["A"]),
                 sinu=float(g["sinuosity"]), L=float(g["L"]))
@@ -76,7 +76,7 @@ def main():
     Lmax = max(c["L"] for c in cs)
     halves = [float(c["g"]["half"]) for c in cs]
     os.makedirs(OUT, exist_ok=True)
-    mp4 = os.path.join(OUT, f"morph_AB_C{CFG['C0']*1e3:.2f}e-3_MF{CFG['Morph_factor']}.mp4")
+    mp4 = os.path.join(OUT, f"morph_all_MF{CFG['Morph_factor']}.mp4")
     writer = imageio.get_writer(mp4, fps=args.fps, codec="libx264",
                                 quality=8, macro_block_size=None)
 
@@ -104,7 +104,7 @@ def main():
                 ax.axvline(xb, color="0.3", ls=":", lw=0.8)
             # yOz cross-section locations (grey DASHED): the exact x the section movie
             # (04_xsection.py) cuts, so the two figures always refer to the same place
-            for j, xs in enumerate(rm.section_x(c["lam"], CFG)):
+            for j, xs in enumerate(rm.section_x(c["lam"], rm.cfg_from_grid(c["g"]))):
                 ax.axvline(xs, color="0.45", ls="--", lw=1.2)
                 if i == 0:
                     ax.text(xs, halves[i] * 0.86, f"S{j+1}", color="0.30", fontsize=8,
@@ -114,7 +114,8 @@ def main():
             ax.set_ylabel("y [m]")
             ax.set_title(f"$\\lambda$ = {c['lam']:.0f} m,  A = {c['A']:.0f} m "
                          f"= {c['A']/(2*CFG['b']):.2f} W,  sinuosity {c['sinu']:.2f}"
-                         f"   (A$k^2$ = {CFG['C0']:.3e} m$^{{-1}}$, same for both)",
+                         f"   (C0 = {1/float(c['g']['R_min']):.3e} m$^{{-1}}$, "
+                         f"R/W = {float(c['g']['R_min'])/(2*CFG['b']):.1f})",
                          fontsize=9, loc="left")
             if i == len(cs) - 1:
                 ax.set_xlabel("down-valley x [m]   (vertical exaggeration ~5x; banks FIXED)")

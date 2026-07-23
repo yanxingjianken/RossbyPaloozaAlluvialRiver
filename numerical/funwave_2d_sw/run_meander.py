@@ -62,6 +62,9 @@ CONFIG = dict(
                          #   threshold (tau/tau_cr = 0.19) and leaks ~1.7%/unit width.
     freeboard=1.5,       # [m] retained only for the figure scripts
     plain=25.0,          # flat floodplain beyond the bank toe [m]
+    Cd_floodplain_mult=30.0,  # [-] drag multiplier on the always-wet floodplain (rough/vegetated).
+                         #   Confines the flow to the channel (shelf otherwise carries ~5% at 0.3 m/s
+                         #   along the meander tangent) WITHOUT a wet/dry boundary.  Channel unchanged.
     # =================== MEANDER ===========================================
     # C0 = A k^2 is held FIXED across runs; A is derived.
     # C0 = 5.0e-3 1/m  <=>  R_min = 200 m = R/W = 2.0, the lower edge of the Leopold-Wolman
@@ -146,7 +149,10 @@ CONFIG = dict(
                          #   (smaller refresh jump).  30 s sits between the measured-healthy MI=20
                          #   and the config's old MI=40, giving margin for the longer production
                          #   morph.  The ON/OFF decisive test ran clean at MI=10.
-    Aval_interval=200.0,   # [s]
+    Aval_interval=50.0,    # [s] SHORT (was 200): bank-migration needs frequent small slump kicks,
+                         #   not rare large ones -- avalanching relaxes only the single steepest
+                         #   neighbour per interval, so a multi-directional bank collapse needs
+                         #   several intervals; 50 s keeps each kick within the MF stability window.
     MinDepthPickup=0.01,   # [m]  0.1 (the shipped example) switches OFF bank-toe pickup,
                          #   which is the entire bank-retreat mechanism.  It cannot be 0
                          #   either: the log-law drag is singular at H = e k_s/30 = 1.1e-4 m.
@@ -234,8 +240,17 @@ CONFIG = dict(
 # lam = 520 was abandoned: it blew up at EVERY head_factor tested (0.80-1.558) and with
 # every BC variant, while a straight channel on the same grid ran clean.  lam = 1560 and
 # 1040 are both healthy.  head_factor from the hf=1.0 probes (U_meas 0.721 / 0.695).
+# B3 is the FIX-AMPLITUDE companion to the fix-CURVATURE B1/B2 pair: same wavelength as B2
+# (lam=1560) but its C0 is solved so the built centreline has A=92 m (== B1's amplitude) instead
+# of the shared C0=3e-3.  That makes B3 gentle (R/W=7.05, sinuosity 1.034, theta_m=0.36) and cleanly
+# MONOCHROMATIC -- the un-contaminated run for the linear dispersion (Rossby-vs-gravity) diagnosis,
+# where B2 at theta_m=0.94 (75% of the J0 fold) risks 3k/5k harmonic aliasing into a false free-mode.
+# Comparisons: B1-vs-B2 = wavelength at fixed curvature; B1-vs-B3 = wavelength at fixed amplitude;
+# B2-vs-B3 = curvature/forcing strength at fixed wavelength.  C0 from run_meander amplitude solve;
+# head_factor calibrated for the gentler reach by bank_B3.sh (its own short rigid-bed probe).
 RUNS = [dict(tag="B1", lam=1040.0, head_factor=1.8561),
-        dict(tag="B2", lam=1560.0, head_factor=1.9595)]
+        dict(tag="B2", lam=1560.0, head_factor=1.9595),
+        dict(tag="B3", lam=1560.0, head_factor=1.8561, C0=1.41766e-03)]
 
 
 def cfg_for(run, cfg=None):
@@ -244,6 +259,20 @@ def cfg_for(run, cfg=None):
     c = copy.deepcopy(cfg if cfg is not None else CONFIG)
     c.update({k: v for k, v in run.items() if k not in ("tag", "lam")})
     return c        # exactly lam_ref/2 so the reach is a common multiple
+
+
+def cfg_from_grid(g, cfg=None):
+    """CONFIG with C0 (and buffer_len) restored from an AS-BUILT grid.npz, so postprocessing
+    recomputes the SAME centreline that was carved.  channel_coords()/section_x() depend on C0,
+    and a run whose C0 differs from the global CONFIG (the fix-amplitude B3: C0=1.42e-3 vs 3e-3)
+    would otherwise get its (n,s,tx,ty) channel frame placed on the wrong curve.  R_min = 1/C0
+    is stored in every grid, so this recovers it without a rebuild."""
+    import copy
+    c = copy.deepcopy(cfg if cfg is not None else CONFIG)
+    c["C0"] = 1.0 / float(g["R_min"])
+    if "buffer_len" in g:
+        c["buffer_len"] = float(g["buffer_len"])
+    return c
 
 
 # --------------------------------------------------------------------------- #
@@ -324,7 +353,18 @@ def centreline(lam, cfg, ds_frac=0.25):
     i0 = int(np.argmin(np.abs(s)))
     x -= x[i0]; y -= y[i0]
     keep = (x >= -lam / 2.0) & (x <= L + lam / 2.0)
-    return x[keep], y[keep], s[keep], np.cos(th[keep]), np.sin(th[keep]), kap[keep]
+    xk, yk = x[keep], y[keep]
+    # Re-centre the reach in y.  Tapering theta zeroes the NET ROTATION per period, but the
+    # POSITION y = int sin(theta) ds still drifts: the reach holds a non-integer bend count and
+    # the end bends are amplitude-tapered, so int sin(theta) ds over [0,L] != 0.  Un-corrected the
+    # channel hugs one closed (PERIODIC=F) wall -- measured mean y=-103 m for lam=1560, only 99 m
+    # of floodplain to the lower wall vs 304 m to the top.  Shift by the excursion MID-RANGE (not
+    # the mean) so the closest approach to each wall is equal and amplitude() sizes a symmetric
+    # domain half.
+    inr = (xk >= 0.0) & (xk <= L)
+    if inr.any():
+        yk = yk - 0.5 * (yk[inr].max() + yk[inr].min())
+    return xk, yk, s[keep], np.cos(th[keep]), np.sin(th[keep]), kap[keep]
 
 
 def taper_arc(s, cfg, sinu):
@@ -510,8 +550,15 @@ def build_case(lam, cfg):
     # The reach settles BELOW this because bend losses eat the difference, so the transient
     # is a deceleration.  Starting instead at the design U makes it an ACCELERATION, and
     # that transient blew B2 up at t = 963 s (hf = 1.558; also fails at CFL = 0.3).
+    # SPATIAL drag: the floodplain beyond the bank toe is HIGH-friction (rough/vegetated), so its
+    # normal-flow speed is sqrt(g h S/(mult*Cd)) -- nearly quiescent.  This confines the flow to the
+    # channel (the always-wet shelf otherwise carries ~5% at 0.30 m/s, following the meander tangent
+    # unphysically) WITHOUT a wet/dry boundary.  The channel's own normal-flow balance is unchanged,
+    # so U and the head calibration are unaffected.
+    toe = cfg["b"] + cfg["m_bank"] * (cfg["H_b"] - cfg["h_plain"])
+    Cd_ic = np.where(np.abs(n) > toe, cfg["Cd"] * cfg.get("Cd_floodplain_mult", 30.0), cfg["Cd"])
     speed = np.where(h_sec > 0.0,
-                     np.sqrt(G_ACCEL * np.maximum(h_sec, 0.0) * S / cfg["Cd"]), 0.0)
+                     np.sqrt(G_ACCEL * np.maximum(h_sec, 0.0) * S / Cd_ic), 0.0)
     ini = dict(eta=eta, u=speed * tx, v=speed * ty)
 
     # Buffer over the first and last bend, needed because FUNWAVE's FLUX_SCALAR_BC
@@ -522,7 +569,14 @@ def build_case(lam, cfg):
     # buffer does accrete (measured: 0 eroding cells, 120 depositing cells, -0.27 m).
     # That is acceptable -- the point is to stop the boundary artefact propagating into
     # the interior -- but the buffer is NOT a frozen bed and must not be analysed.
-    Zs = np.where((X < cfg["buffer_len"]) | (X > L - cfg["buffer_len"]), 0.0, 1.0e6)
+    # SMOOTH ramp instead of a hard 0/LARGE step: with the interior fully erodible, the buffer
+    # edge is the ONLY erodibility jump, and a hard oblique step there seeds a knickpoint (the
+    # design-review risk).  Ramp Zs from 0 (buffer) to LARGE (interior) over ~8 dx at each edge;
+    # the sink-freeze (Zb=0 where Zs<1) then stays scoped to the buffer core, keeping the
+    # erodible interior Exner-conservative.
+    edge = 8.0 * cfg["dx"]
+    d_edge = np.minimum(X - cfg["buffer_len"], (L - cfg["buffer_len"]) - X)   # dist past nearest buffer edge
+    Zs = np.clip(d_edge / edge, 0.0, 1.0) * 1.0e6
 
     sinu = sinuosity(lam, cfg)
     meta = dict(lam=lam, k=k, A=A, L=L, nx=nx, ny=ny, half=half, S=S,
@@ -703,6 +757,11 @@ def write_case(lam, cfg):
         toe = cfg["b"] + cfg["m_bank"] * (cfg["H_b"] - cfg["h_plain"])
         taper = np.clip((toe - np.abs(nf1)) / (toe - cfg["b"]), 0.0, 1.0)
         cd_field = cfg["Cd"] * np.clip(1.0 + A_ik * kf1 * nf1 * taper, 0.2, 1.8)
+        # HIGH-friction floodplain beyond the bank toe (rough/vegetated): confines the flow to the
+        # channel so it follows the bank, instead of the always-wet shelf carrying ~5% everywhere.
+        # Ramped over ~4 dx from the toe so the drag is not a hard oblique step.
+        fp = np.clip((np.abs(nf1) - toe) / (4.0 * cfg["dx"]), 0.0, 1.0)          # 0 at toe -> 1 on floodplain
+        cd_field = cd_field * (1.0 + (cfg.get("Cd_floodplain_mult", 30.0) - 1.0) * fp)
         np.savetxt(os.path.join(base, "bathy", "cd.txt"), cd_field.T, fmt="%14.7e")
     # gap 1 BEDLOAD half: the channel curvature kappa, read by mod_sediment.F to deflect the
     # bedload toward the inner bank by delta = A kappa H / f_slope (Ikeda 1981).  Tapered to the

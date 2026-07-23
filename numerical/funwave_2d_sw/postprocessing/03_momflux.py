@@ -56,7 +56,7 @@ def case(base):
     if not us:
         return None
     X, Y = np.meshgrid(g["x"], g["y"], indexing="ij")
-    _, s, tx, ty, _ = rm.channel_coords(X, Y, float(g["lam"]), CFG)
+    _, s, tx, ty, _ = rm.channel_coords(X, Y, float(g["lam"]), rm.cfg_from_grid(g))
     chan = (np.abs(g["n"]) <= CFG["b"]) & (g["Zs"] > 0)
     return dict(tag=os.path.basename(base), g=g, us=us, X=X, Y=Y, s=s,
                 tx=tx, ty=ty, chan=chan, n=g["n"])
@@ -104,7 +104,7 @@ def main():
     Lmax = max(float(c["g"]["L"]) for c in cs)
     halves = [float(c["g"]["half"]) for c in cs]
     os.makedirs(OUT, exist_ok=True)
-    mp4 = os.path.join(OUT, f"momflux_AB_C{CFG['C0']*1e3:.2f}e-3_MF{CFG['Morph_factor']}.mp4")
+    mp4 = os.path.join(OUT, f"momflux_all_MF{CFG['Morph_factor']}.mp4")
     writer = imageio.get_writer(mp4, fps=args.fps, codec="libx264",
                                 quality=8, macro_block_size=None)
     hist = [[] for _ in cs]
