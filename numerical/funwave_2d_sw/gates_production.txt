@@ -1,0 +1,7 @@
+
+==============================================================================
+lam1040_C3p00e-3_U0p85_hf1p823_D50500um_MF5
+==============================================================================
+  [FAIL] G1 flow is steady at the end of spin-up   max |dspeed| between the last two snapshots = 21.92% of the mean
+  [PASS] G2 mean channel speed = design U   0.842 m/s vs design 0.850 m/s (-0.9%)
+  [FAIL] G2 depth-averaged momentum balance Cd U^2 = g H S   Cd<U^2>=1.179e-03, g<H>S=1.591e-03 m2/s2  (34.9% apart)

@@ -234,8 +234,8 @@ CONFIG = dict(
 # lam = 520 was abandoned: it blew up at EVERY head_factor tested (0.80-1.558) and with
 # every BC variant, while a straight channel on the same grid ran clean.  lam = 1560 and
 # 1040 are both healthy.  head_factor from the hf=1.0 probes (U_meas 0.721 / 0.695).
-RUNS = [dict(tag="B1", lam=1040.0, head_factor=1.8225),
-        dict(tag="B2", lam=1560.0, head_factor=1.9293)]
+RUNS = [dict(tag="B1", lam=1040.0, head_factor=1.8561),
+        dict(tag="B2", lam=1560.0, head_factor=1.9595)]
 
 
 def cfg_for(run, cfg=None):
