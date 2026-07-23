@@ -1,6 +1,11 @@
 runs/
 figures/
+gates.txt
 work_river/
 FUNWAVE-TVD/
 *.log
 __pycache__/
+derivations/*.aux
+derivations/*.log
+derivations/*.out
+derivations/*.toc

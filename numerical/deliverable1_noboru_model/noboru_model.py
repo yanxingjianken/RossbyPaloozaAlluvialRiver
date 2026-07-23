@@ -108,6 +108,20 @@ CONFIG = dict(
     # movies plot psi in its own units with no gain, so A0 is what sets how wavy the flume
     # starts.  |psibar(b)| = 1 - D/3 = 0.833 at D=0.5 is the natural yardstick.
     A0=0.02,
+    # ---- which initial condition ------------------------------------------------
+    # "spinup" (DEFAULT): the flume as it is actually operated -- the wavy channel is
+    #   carved, the banks are already at psi1'=psi3'=A0 cos(k*x), and the water is
+    #   switched on at t=0 with the interior AT REST (psi2' = 0).  The interior then
+    #   spins up to the forced steady state, the approach decaying at exactly -gamma
+    #   (verified).  This shows the whole process rather than starting at the answer.
+    # "steady": start ON the pp.12-18 forced steady state.  This is the initial-value
+    #   problem the DECK poses for p.19 ("take the forced state, then release the
+    #   banks"), and it is the right choice if what you want is the bank eigenmode
+    #   with no transient in front of it.
+    # CAUTION with "spinup": the transient decays at -gamma, so a bank mode whose own
+    # rate is close to -gamma cannot be separated from it by any fit, however long the
+    # run (k*=1.5 has sigma=-0.096 against -gamma=-0.100 -- they never separate).
+    ic="spinup",
 )
 
 # The two headline runs: identical but for k*.  n_wave differs ONLY so that both reaches
@@ -225,10 +239,13 @@ def initial_condition(x, cfg):
     river.pdf poses it.
     """
     kstar, A0 = cfg["kstar"], cfg["A0"]
-    f = forced_ratio(kstar, cfg["D"], cfg["gamma"])
     cs, sn = np.cos(kstar * x), np.sin(kstar * x)
     bank = A0 * cs                                    # psi1' = psi3', wavy: the channel
-    centre = A0 * (f.real * cs - f.imag * sn)         # Re[f A e^{i k x}]: the response
+    if cfg.get("ic", "spinup") == "steady":
+        f = forced_ratio(kstar, cfg["D"], cfg["gamma"])
+        centre = A0 * (f.real * cs - f.imag * sn)     # Re[f A e^{i k x}]: the response
+    else:                                             # "spinup": water switched on at t=0
+        centre = 0.0 * x
     return bank, centre, bank
 
 

@@ -27,38 +27,46 @@ def check(name, ok, detail=""):
 
 
 # --------------------------------------------------------------------------- #
-print("\n=== 1. centreline curvature: FD on the sampled curve vs the design C0 ===")
+print("\n=== 1. the drive: |kappa|max must equal C0 EXACTLY for both runs ===")
+# This is the whole premise.  The previous tapered-sine construction overshot C0 by 12-97%
+# in the ramp, by an amount that depended on ramp/lam -- so the two cases did NOT share the
+# drive.  A curvature-defined (sine-generated) curve fixes it identically.
+kmax = {}
 for lam in LAMS:
-    A, k = rm.amplitude(lam, CFG), rm.wavenumber(lam)
-    x = np.linspace(-lam / 4, lam / 4, 200001)
-    y = A * np.cos(k * x)
-    xp, yp = np.gradient(x), np.gradient(y)
-    xpp, ypp = np.gradient(xp), np.gradient(yp)
-    kappa = np.abs(xp * ypp - yp * xpp) / (xp ** 2 + yp ** 2) ** 1.5
-    apex = kappa[np.argmin(np.abs(x))]                      # x=0 is the apex
-    err = abs(apex - CFG["C0"]) / CFG["C0"]
-    check(f"lam={lam:.0f}: FD apex curvature = C0", err < 1e-4,
-          f"kappa_FD={apex:.6e} vs C0={CFG['C0']:.6e}  ({err*100:.4f}%)")
+    x, y, s, _, _, kap = rm.centreline(lam, CFG)
+    L = rm.reach_length(CFG); m = (x >= 0) & (x <= L)
+    kmax[lam] = float(np.abs(kap[m]).max())
+    check(f"lam={lam:.0f}: |kappa|max = C0", abs(kmax[lam] / CFG["C0"] - 1) < 5e-3,
+          f"{kmax[lam]:.5e} vs C0 {CFG['C0']:.5e}  ({100*(kmax[lam]/CFG['C0']-1):+.2f}%)")
+check("both runs share |kappa|max", abs(kmax[LAMS[0]] / kmax[LAMS[1]] - 1) < 5e-3,
+      f"ratio = {kmax[LAMS[0]]/kmax[LAMS[1]]:.5f}")
+W = 2 * CFG["b"]
+for lam in LAMS:
+    check(f"lam={lam:.0f}: R/W >= 2 (measured stability threshold)",
+          1 / kmax[lam] / W >= 2.0, f"R/W = {1/kmax[lam]/W:.2f}")
 
-print("\n=== 2. the two runs share the drive (that is the whole design) ===")
-C = [rm.amplitude(l, CFG) * rm.wavenumber(l) ** 2 for l in LAMS]
-check("A k^2 identical across runs", np.allclose(C, C[0], rtol=1e-12),
-      f"C = {C[0]:.6e} 1/m for both -> R_min = {1/C[0]:.1f} m")
-ks = [rm.wavenumber(l) for l in LAMS]
-check("wavenumbers actually differ", abs(ks[1] / ks[0] - 1) > 0.5,
-      f"k2/k1 = {ks[1]/ks[0]:.2f}")
-# the reach must be a COMMON MULTIPLE: same down-valley domain, whole bends in both
+print("\n=== 2. geometry of the built curve ===")
 L = rm.reach_length(CFG)
+check(f"lam requested <= lam_max = 5.073/C0", max(LAMS) <= rm.lam_max(CFG),
+      f"lam_max = {rm.lam_max(CFG):.0f} m, longest requested {max(LAMS):.0f} m")
 for lam in LAMS:
-    nb = L / lam
-    check(f"lam={lam:.1f}: whole number of bends in the common reach",
-          abs(nb - round(nb)) < 1e-9, f"L/lam = {nb:.6f} bends over L = {L:.0f} m")
+    x, y, s, _, _, _ = rm.centreline(lam, CFG)
+    m = (x >= 0) & (x <= L)
+    span = x[m][-1] - x[m][0]
+    check(f"lam={lam:.0f}: the curve spans the reach without drifting",
+          abs(span - L) / L < 1e-3, f"x span = {span:.1f} m vs L = {L:.0f} m")
+    nb = span / lam
+    check(f"lam={lam:.0f}: whole number of bends", abs(nb - round(nb)) < 5e-3,
+          f"{nb:.4f} bends, sinuosity {rm.sinuosity(lam, CFG):.4f}, "
+          f"amplitude {rm.amplitude(lam, CFG)/W:.2f} W")
 interior = L - 2 * CFG["buffer_len"]
 for lam in LAMS:
     nb = interior / lam
-    check(f"lam={lam:.1f}: whole number of bends in the INTERIOR (buffer excluded)",
-          abs(nb - round(nb)) < 1e-9,
-          f"interior {interior:.0f} m = {nb:.6f} bends")
+    check(f"lam={lam:.1f}: whole bends in the INTERIOR", abs(nb - round(nb)) < 1e-9,
+          f"interior {interior:.0f} m = {nb:.4f} bends")
+ks = [rm.wavenumber(l) for l in LAMS]
+r = max(ks[1] / ks[0], ks[0] / ks[1])
+check("wavenumbers differ by at least 1.4x", r >= 1.4, f"k ratio = {r:.2f}")
 
 print("\n=== 3. no folding: the inner bank must not cross the centreline ===")
 for lam in LAMS:
@@ -69,18 +77,34 @@ for lam in LAMS:
 print("\n=== 4. sinuosity: exact integral, and how wrong the small-Ak expansion is ===")
 for lam in LAMS:
     A, k = rm.amplitude(lam, CFG), rm.wavenumber(lam)
-    s_exact, s_approx = rm.sinuosity(lam, CFG), 1.0 + (A * k) ** 2 / 4.0
-    check(f"lam={lam:.0f}: sinuosity finite and > 1", 1.0 < s_exact < 4.0,
-          f"exact={s_exact:.4f}, 1+(Ak)^2/4={s_approx:.4f}, "
-          f"expansion error={100*(s_approx-s_exact)/s_exact:+.1f}%")
+    from scipy.special import j0
+    s_meas = rm.sinuosity(lam, CFG)
+    s_theory = 1.0 / j0(rm.theta_max(lam, CFG))
+    check(f"lam={lam:.0f}: sinuosity within 20% of the untapered 1/J0(theta_m)",
+          abs(s_meas / s_theory - 1) < 0.20,
+          f"measured {s_meas:.4f}, 1/J0(theta_m) {s_theory:.4f} "
+          f"(the taper straightens the buffers, so measured is lower)")
 
 print("\n=== 5. cross-section endpoints ===")
 for tgt, n in (("H_c", 0.0), ("H_b", CFG["b"])):
     got = float(rm.section_depth(np.array([n]), CFG)[0])
     check(f"h(n={n:.0f}) = {tgt}", abs(got - CFG[tgt]) < 1e-9, f"{got:.6f} m")
-n_plain = CFG["b"] + CFG["m_bank"] * (CFG["H_b"] + CFG["freeboard"]) + 1.0
+n_plain = CFG["b"] + CFG["m_bank"] * (CFG["H_b"] - CFG["h_plain"]) + 1.0
 got = float(rm.section_depth(np.array([n_plain]), CFG)[0])
-check("floodplain clipped at -freeboard", abs(got + CFG["freeboard"]) < 1e-9, f"{got:.3f} m")
+check("shelf clamps at h_plain (ALWAYS WET, no wet/dry line on the bank)",
+      abs(got - CFG["h_plain"]) < 1e-9, f"h = {got:.3f} m > 0")
+# the shelf must sit below the erosion threshold or it washes away and the design collapses
+S = rm.slope(CFG)
+U_p = np.sqrt(rm.G_ACCEL * CFG["h_plain"] * S / CFG["Cd"])
+tau_p = CFG["Cd"] * U_p ** 2
+tau_cr = (CFG["Sdensity"] - 1) * rm.G_ACCEL * CFG["D50"] * CFG["Shields_cr_bedload"]
+check("shelf is below the bedload threshold", tau_p < tau_cr,
+      f"tau/tau_cr = {tau_p/tau_cr:.3f} at U_shelf = {U_p:.3f} m/s")
+# ... but the bank FACE must cross it, or there is no bank erosion at all
+U_f = np.sqrt(rm.G_ACCEL * CFG["H_b"] * S / CFG["Cd"])
+check("bank face DOES cross the threshold (bank erosion is preserved)",
+      CFG["Cd"] * U_f ** 2 > tau_cr,
+      f"tau/tau_cr = {CFG['Cd']*U_f**2/tau_cr:.3f} at the bank edge (h = {CFG['H_b']} m)")
 
 print("\n=== 6. constant PV gradient: numeric from section_depth vs analytic pv_gradient ===")
 # independent route: build U(n) from the normal-flow balance on the ACTUAL section array,
@@ -108,8 +132,13 @@ rng = np.random.default_rng(0)
 Xp = rng.uniform(lam * 0.3, lam * 0.7, 300)
 Yp = rng.uniform(-A - CFG["b"], A + CFG["b"], 300)
 n_kd, s_kd = rm.channel_coords(Xp[:, None], Yp[:, None], lam, CFG)[:2]
-xf = np.linspace(-lam, rm.reach_length(CFG) + lam, 400001)      # brute-force reference
-yf = A * rm.taper(xf, CFG) * np.cos(k * xf)   # the taper is part of the centreline
+# Reference: the built curve, REFINED 20x.  n is the PERPENDICULAR distance, whereas a
+# brute-force min over discrete samples returns sqrt(d^2 + delta^2) with delta the along-curve
+# offset of the nearest sample -- so a coarse reference is biased high by O(delta^2/2d).
+xc0, yc0 = rm.centreline(lam, CFG)[:2]
+tt = np.linspace(0, len(xc0) - 1, (len(xc0) - 1) * 20 + 1)
+xf = np.interp(tt, np.arange(len(xc0)), xc0)
+yf = np.interp(tt, np.arange(len(yc0 := yc0)), yc0)
 d_brute = np.array([np.min(np.hypot(Xp[i] - xf, Yp[i] - yf)) for i in range(len(Xp))])
 rel = np.abs(np.abs(n_kd.ravel()) - d_brute) / np.maximum(d_brute, 1e-6)
 check("|n| matches brute-force nearest distance", rel.max() < 5e-3,
@@ -131,9 +160,17 @@ print("\n=== 7b. sign convention: n*sign(kappa) > 0 must be the INNER bank ===")
 # against distances, not against the algebra that produced it.
 for lam in LAMS:
     A, k = rm.amplitude(lam, CFG), rm.wavenumber(lam)
-    for xa, what in ((0.0, "crest"), (np.pi / k, "trough")):
-        P = np.array([xa, A * np.cos(k * xa)])
-        n_p, _, tx, ty, kap = rm.channel_coords(np.array([[xa]]), np.array([[P[1]]]), lam, CFG)
+    # probe at an apex INSIDE the reach: the taper makes x=0 a straight section, where the
+    # curvature is ~0 and inner/outer is undefined.  (This test silently broke when the
+    # straight lead-in was added -- the third time in this project that a code change
+    # outran its test.)
+    xc_, yc_, _, _, _, kp_ = rm.centreline(lam, CFG)
+    inr = (xc_ > CFG["buffer_len"]) & (xc_ < rm.reach_length(CFG) - CFG["buffer_len"])
+    ipos = np.where(inr)[0][np.argmax(kp_[inr])]
+    ineg = np.where(inr)[0][np.argmin(kp_[inr])]
+    for ii, what in ((ipos, "kappa>0 apex"), (ineg, "kappa<0 apex")):
+        P = np.array([xc_[ii], yc_[ii]])
+        n_p, _, tx, ty, kap = rm.channel_coords(np.array([[P[0]]]), np.array([[P[1]]]), lam, CFG)
         kap = float(kap)
         N = np.array([-float(ty), float(tx)])            # left normal
         Cc = P + N / kap                                 # centre of curvature

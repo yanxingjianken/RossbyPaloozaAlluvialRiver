@@ -38,10 +38,9 @@ def load(p):
 
 def wet_channel(base, g):
     """Boolean (nx, ny): inside |n| <= b AND outside the non-erodible buffer."""
-    x, y = g["x"], g["y"]
-    X, Y = np.meshgrid(x, y, indexing="ij")
-    n = rm.channel_coords(X, Y, float(g["lam"]), CFG)[0]
-    return (np.abs(n) <= CFG["b"]) & (g["Zs"] > 0)
+    # as-built mask, never recomputed from CONFIG (a config edit between build and analysis
+    # silently shifts the centreline and samples shelf cells as channel)
+    return (np.abs(g["n"]) <= CFG["b"]) & (g["Zs"] > 0)
 
 
 def validate(base):
@@ -85,11 +84,11 @@ def validate(base):
         check("G4 morph produced >=2 bed snapshots", False, f"{len(sd)} found")
         return
     dd = load(sd[-1]) - load(sd[0])
-    buf = g["Zs"] == 0
+    bufmask = g["Zs"] == 0
     check("G4 no erosion in the Hard_bottom buffer (Zs caps erosion only)",
-          dd[buf].max() <= 1e-9,
-          f"buffer dDepth in [{dd[buf].min():+.3f}, {dd[buf].max():+.3f}] m "
-          f"(+ = erosion); {int((dd[buf] < -1e-6).sum())} cells accreting")
+          dd[bufmask].max() <= 1e-9,
+          f"buffer dDepth in [{dd[bufmask].min():+.3f}, {dd[bufmask].max():+.3f}] m "
+          f"(+ = erosion); {int((dd[bufmask] < -1e-6).sum())} cells accreting")
     # the interior next to the buffer must not be dominated by the artefact:
     # compare the bed change in the first interior bend with the reach interior
     x = g["x"]
@@ -111,14 +110,37 @@ def validate(base):
           f"max |total ddep| = {tot*100:.0f}% of H_c over "
           f"{CFG['t_morph']*CFG['Morph_factor']/86400:.0f} morphological days")
 
+    # ---- G6/G7: the always-wet shelf must behave as designed ---------------
+    # The shelf replaces a dry floodplain so that no wet/dry boundary lies along the oblique
+    # bank (that boundary is what destroyed every earlier run).  Two things must hold or the
+    # design is invalid, so both are gates, not notes.
+    shelf = (np.abs(g["n"]) > CFG["b"] + CFG["m_bank"] * (CFG["H_b"] - CFG["h_plain"])) \
+            & (g["Zs"] > 0)
+    u1 = load(su[-1]); v1 = load(su[-1].replace("/u_", "/v_"))
+    Hs = eta + g["Depth"]
+    q_shelf = float((np.hypot(u1, v1) * np.maximum(Hs, 0))[shelf].sum())
+    q_chan = float((np.hypot(u1, v1) * np.maximum(Hs, 0))[chan].sum())
+    frac = q_shelf / max(q_shelf + q_chan, 1e-12)
+    check("G6 shelf carries a small fraction of the discharge", frac < 0.10,
+          f"{100*frac:.1f}% of the total (design estimate ~4%)")
+    check("G6 shelf is fully wet (no wet/dry line on the bank)",
+          float((Hs[shelf] > CFG["MinDepth"]).mean()) > 0.999,
+          f"{100*(Hs[shelf] > CFG['MinDepth']).mean():.2f}% wet")
+    shelf_move = np.abs(dd[shelf]).max()
+    check("G7 the shelf bed does not move (tau < tau_cr there)", shelf_move < 0.05,
+          f"max |ddep| on the shelf = {shelf_move:.4f} m over the whole morph phase")
+    bankface = (np.abs(g["n"]) > CFG["b"] * 0.8) & (np.abs(g["n"]) <= CFG["b"] * 1.4) \
+               & (g["Zs"] > 0)
+    print(f"  [INFO] bank-face bed change (0.8b < |n| <= 1.4b): "
+          f"mean {dd[bankface].mean():+.4f} m, max erosion {dd[bankface].max():+.4f} m "
+          f"-- this is the bank retreat the shelf design exists to preserve")
+
     # ---- the prediction this pair of runs was set up to test ---------------
     # Stock FUNWAVE has no transverse bed-slope deflection and no secondary-flow closure
     # (A_s = 0, the Ikeda-1981 A=0 limit), so the standing PREDICTION is outer-bank scour
     # WITHOUT an inner point bar.  Report the measured inner/outer split; do not assert it.
     # Inner bank is n*sign(kappa) > 0 -- verified geometrically in tests/test_bathy.py 7b.
-    X, Y = np.meshgrid(g["x"], g["y"], indexing="ij")
-    n, _, _, _, kap = rm.channel_coords(X, Y, lam, CFG)
-    nn = n * np.sign(kap)                       # > 0 inner, < 0 outer
+    nn = g["n"] * np.sign(g["kappa"])           # as built                       # > 0 inner, < 0 outer
     core = chan & (x[:, None] > buf) & (x[:, None] < L - buf)   # the whole interior
     inner = core & (nn > CFG["b"] / 2)
     outer = core & (nn < -CFG["b"] / 2)

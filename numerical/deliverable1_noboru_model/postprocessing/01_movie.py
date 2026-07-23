@@ -21,6 +21,7 @@ from matplotlib.colors import SymLogNorm
 
 from pp_lib import (COLORS, bank_mode, fig_to_rgb, fit_sigma_c, growth_and_phase,
                     load_run, set_style, v2_of, write_mp4, zeta2_of)
+from noboru_model import forced_ratio    # after pp_lib: it puts the pkg on sys.path
 
 
 plt = set_style()
@@ -157,10 +158,21 @@ def make_movie(tag, title_extra=None):
     axC.set_ylim(max(amp2[pos].min() * 0.5, 1e-30), amp2.max() * 3)
     axC.set_xlabel(r"$t$   (units of $b/(U_0+\Delta)$)")
     axC.set_ylabel(r"$|\hat\psi_2|$")
-    axC.plot(t, amp2[0] * np.exp(sigma_a * (t - t[0])), ls="--", lw=1.6, color="0.55",
-             label=rf"det $M=0$ bank root:  $\sigma={sigma_a:+.4f}$")
+    # Anchor the analytic curve on the ANALYTIC forced steady state, |f * A0|, not on
+    # amp2[0].  With the spin-up initial condition the interior starts from rest, so
+    # amp2[0] = 0 and a line drawn as amp2[0]*exp(sigma t) is identically zero -- it
+    # vanishes on a log axis.  |f A0| is the value p.11's closure predicts the interior
+    # relaxes to (A0 = |psihat1| at t=0, which the bank carries), so for a rigid-bank run
+    # (sigma = 0) this is a HORIZONTAL line and the spin-up curve climbs to meet it.
+    anch = abs(forced_ratio(kstar, D, gamma) * run["amp1"][0])
+    axC.plot(t, anch * np.exp(sigma_a * (t - t[0])), ls="--", lw=1.6, color="0.55",
+             label=rf"det $M=0$: $|f A_0|={anch:.4f}$, $\sigma={sigma_a:+.4f}$")
+    jf = int(np.argmax(t >= 0.6 * t[-1]))          # fit_sigma_c uses frac = 0.6
+    axC.axvspan(t[0], t[jf], color="0.85", alpha=0.45, lw=0, zorder=0)
+    axC.text(t[jf] * 0.5, axC.get_ylim()[0], " spin-up — not fitted", fontsize=7.5,
+             color="0.35", va="bottom", ha="center")
     clab = (rf"Dedalus (fit $\sigma={sigma_m:+.4f}$)" if converged
-            else "Dedalus — both roots still superposed")
+            else rf"Dedalus (fit $\sigma={sigma_m:+.4f}$) — roots NOT separated")
     (lineC,) = axC.plot([], [], color=COLORS["growth"], lw=2.0, label=clab)
     (dotC,) = axC.plot([], [], "o", ms=6, color=COLORS["growth"])
     axC.legend(fontsize=8.5, loc="best")
