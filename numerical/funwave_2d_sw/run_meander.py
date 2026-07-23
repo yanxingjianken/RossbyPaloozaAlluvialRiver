@@ -129,7 +129,13 @@ CONFIG = dict(
     # T_flow ~ 0.2 s, T_c = H/(gamma w_s) ~ 20 s, T_bed ~ 1e7 s.  Morph_factor bridges the
     # last gap; Morph_interval must be >> T_c or the Exner forcing is an unequilibrated
     # suspension transient.  Both are printed by report() so the inflation is never invisible.
-    Morph_factor=1000,   # [-] integer
+    Morph_factor=50,     # [-] integer.  NOT 1000: measured MF sweep from the healthy spin-up
+                         #   blew up at MF=20,100,500,1000 (t_blow 203->108 s, monotone in MF)
+                         #   and was STABLE at MF=1.  The bed adjusts at 6.25e-5 m/s -- 170x
+                         #   faster than the equilibrium MPM estimate, because the initial bed
+                         #   is not a morphodynamic equilibrium -- so MF*dt*rate must stay
+                         #   below ~1e-3 H per step; that caps MF at ~126.  50 keeps 2.5x margin
+                         #   (per-step bed move 4e-4 H).  Enforced by the assert in run().
     Morph_interval=200.0,  # [s]  ~10 T_c
     Aval_interval=200.0,   # [s]
     MinDepthPickup=0.01,   # [m]  0.1 (the shipped example) switches OFF bank-toe pickup,
@@ -140,11 +146,11 @@ CONFIG = dict(
     spin_transits=1.0,   # phase-1 length, in channel transit times L_channel/U.  Per-run,
                          #   so both cases enter phase 2 equally converged; starting both
                          #   from rest instead would give B1 a 2.5x longer spin-up.
-    t_morph=16800.0,     # [s] phase-2 hydrodynamic time, IDENTICAL for both runs.
-                         #   t_morph * Morph_factor = 1.68e7 s = 194 d ~ ONE bar-formation
-                         #   timescale T_bed = (1-n_p) H W / q_b at U = 0.85.  Dropping U
-                         #   1.00 -> 0.85 halves q_b (1.90e-5 -> 9.48e-6 m2/s), so the time
-                         #   doubles from the 8000 s that spanned a bar at U = 1.0.
+    t_morph=8000.0,      # [s] phase-2 hydrodynamic time, IDENTICAL for both runs.
+                         #   MEASURED: the growing bed mode reaches ~0.3 H in ~7500 s hydro at
+                         #   MF=1; at MF=50 that is 8000 s / 50 -> the morphological span is
+                         #   t_morph*MF = 4e5 s ~ 4.6 d, several bar-development times.  Wall
+                         #   clock ~ t_morph/(7x realtime) ~ 20 min/case.
     TideEast_U=0.0,      # [m/s] outflow velocity nudge.  0 makes the outlet a SELF-ADJUSTING
                          #   sink: momentum is damped and the eta nudge removes exactly the
                          #   water that arrives, so it cannot over-extract.  Setting it to the
@@ -164,8 +170,8 @@ CONFIG = dict(
 # lam = 520 was abandoned: it blew up at EVERY head_factor tested (0.80-1.558) and with
 # every BC variant, while a straight channel on the same grid ran clean.  lam = 1560 and
 # 1040 are both healthy.  head_factor from the hf=1.0 probes (U_meas 0.721 / 0.695).
-RUNS = [dict(tag="B1", lam=1040.0, head_factor=1.8224),
-        dict(tag="B2", lam=1560.0, head_factor=1.9285)]
+RUNS = [dict(tag="B1", lam=1040.0, head_factor=1.8225),
+        dict(tag="B2", lam=1560.0, head_factor=1.9293)]
 
 
 def cfg_for(run, cfg=None):

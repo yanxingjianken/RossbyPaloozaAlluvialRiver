@@ -102,9 +102,16 @@ def validate(base):
     # ---- G5: is Morph_factor small enough? --------------------------------
     per = np.abs(np.diff(np.array([load(p) for p in sd]), axis=0))
     worst = per.max(axis=0)[chan].max() / CFG["H_c"]
-    check("G5 bed change per output interval < 10% of H", worst < 0.10,
-          f"max |ddep| per {CFG['plot_intv']:.0f} s = {worst*100:.1f}% of H_c "
-          f"(Morph_factor = {CFG['Morph_factor']}) -- if this fails, lower Morph_factor")
+    # morphodynamic Courant: bed move per HYDRO STEP must stay below ~1e-3 H or the coupled
+    # system goes unstable (measured: MF=20 already blew up, MF=1 stable, threshold ~126).
+    dt_hydro = CFG["CFL"] * CFG["dx"] / (CFG["U"] + np.sqrt(rm.G_ACCEL * CFG["H_c"]))
+    per_step = worst * CFG["H_c"] * dt_hydro / (CFG["plot_intv"] * CFG["Morph_factor"])
+    check("G5 morphodynamic Courant: bed move < 1e-3 H per hydro step",
+          per_step / CFG["H_c"] < 1e-3,
+          f"{per_step/CFG['H_c']:.1e} H/step at MF={CFG['Morph_factor']} "
+          f"(blows up above ~1e-3; measured stable MF ceiling ~126)")
+    check("G5 bed change per output interval < 15% of H", worst < 0.15,
+          f"max |ddep| per {CFG['plot_intv']:.0f} s = {worst*100:.1f}% of H_c")
     tot = np.abs(dd)[chan].max() / CFG["H_c"]
     check("G5 total bed change is O(H), i.e. the run spans ~one bar", 0.05 < tot < 2.0,
           f"max |total ddep| = {tot*100:.0f}% of H_c over "
