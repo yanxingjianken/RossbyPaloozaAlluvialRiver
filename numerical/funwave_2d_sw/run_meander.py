@@ -207,11 +207,11 @@ CONFIG = dict(
     spin_transits=1.0,   # phase-1 length, in channel transit times L_channel/U.  Per-run,
                          #   so both cases enter phase 2 equally converged; starting both
                          #   from rest instead would give B1 a 2.5x longer spin-up.
-    t_morph=8000.0,      # [s] phase-2 hydrodynamic time, IDENTICAL for both runs.
-                         #   MEASURED: the growing bed mode reaches ~0.3 H in ~7500 s hydro at
-                         #   MF=1; at MF=50 that is 8000 s / 50 -> the morphological span is
-                         #   t_morph*MF = 4e5 s ~ 4.6 d, several bar-development times.  Wall
-                         #   clock ~ t_morph/(7x realtime) ~ 20 min/case.
+    t_morph=30000.0,     # [s] phase-2 hydrodynamic time, IDENTICAL for both runs.  At MF=5 the
+                         #   morphological span is t_morph*MF = 1.5e5 s ~ 1.74 d, several point-
+                         #   bar development times for the gap-1 secondary-flow deflection to
+                         #   build the bar.  plot_intv=250 -> 120 frames.  Wall ~40 min/case;
+                         #   both cases run concurrently, so ~40 min + ~15 min spin-up.
     TideEast_U=0.0,      # [m/s] outflow velocity nudge.  0 makes the outlet a SELF-ADJUSTING
                          #   sink: momentum is damped and the eta nudge removes exactly the
                          #   water that arrives, so it cannot over-extract.  Setting it to the
