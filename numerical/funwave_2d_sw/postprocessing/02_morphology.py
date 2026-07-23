@@ -114,13 +114,18 @@ def main():
                            "(+ deposition, $-$ erosion)")
         th = f * CFG["plot_intv"]
         tm = th * CFG["Morph_factor"]
+        closure = (f"Ikeda-1981 secondary-flow closure ON ($A$ = {CFG.get('A_ikeda', 2.89)}, "
+                   f"$C_d^{{eff}} = C_d(1+A\\kappa n)$)" if CFG.get("SecondaryFlow")
+                   else "stock FUNWAVE: no secondary-flow closure")
         fig.suptitle(f"FUNWAVE-TVD  NSWE + Exner + avalanching   |   "
                      f"$t_{{hydro}}$ = {th:6.0f} s   "
                      f"$t_{{morph}}$ = {tm/86400:6.1f} d  "
-                     f"(Morph_factor = {CFG['Morph_factor']}, stock FUNWAVE: $A_s$ = 0, "
-                     f"no point-bar closure)", fontsize=10)
+                     f"(Morph_factor = {CFG['Morph_factor']}, {closure})", fontsize=10)
         fig.canvas.draw()
-        writer.append_data(np.asarray(fig.canvas.buffer_rgba())[..., :3].copy())
+        buf = np.asarray(fig.canvas.buffer_rgba())[..., :3]
+        h, w = buf.shape[:2]                       # libx264 + yuv420p require EVEN dims;
+        buf = buf[:h - (h % 2), :w - (w % 2)].copy()   # a matplotlib canvas is often odd
+        writer.append_data(buf)
         plt.close(fig)
         if (f + 1) % 10 == 0 or f == nfr - 1:
             print(f"  frame {f+1}/{nfr}")

@@ -129,18 +129,79 @@ CONFIG = dict(
     # T_flow ~ 0.2 s, T_c = H/(gamma w_s) ~ 20 s, T_bed ~ 1e7 s.  Morph_factor bridges the
     # last gap; Morph_interval must be >> T_c or the Exner forcing is an unequilibrated
     # suspension transient.  Both are printed by report() so the inflation is never invisible.
-    Morph_factor=50,     # [-] integer.  NOT 1000: measured MF sweep from the healthy spin-up
-                         #   blew up at MF=20,100,500,1000 (t_blow 203->108 s, monotone in MF)
-                         #   and was STABLE at MF=1.  The bed adjusts at 6.25e-5 m/s -- 170x
-                         #   faster than the equilibrium MPM estimate, because the initial bed
-                         #   is not a morphodynamic equilibrium -- so MF*dt*rate must stay
-                         #   below ~1e-3 H per step; that caps MF at ~126.  50 keeps 2.5x margin
-                         #   (per-step bed move 4e-4 H).  Enforced by the assert in run().
-    Morph_interval=200.0,  # [s]  ~10 T_c
+    Morph_factor=5,      # [-] integer.  NOT 50: the gap-2 transverse relaxation has a stability
+                         #   window tau in [|Zb_target| dt MF/(1e-3 H), H/(Zb_rate MF)] that is
+                         #   EMPTY at MF=50 (4318 > 3750) -- which is why every ON run either blew
+                         #   up (tau too small) or was ON==OFF (tau too large).  MF<=10 opens the
+                         #   window; MF=5 gives [432, 37500] s, tau=2000 sits comfortably inside.
+                         #   Cost: 10x more hydro time per morphological day, but a point bar
+                         #   forms in ~1000 s morphological time, so it is affordable.
+
+    Morph_interval=40.0,   # [s] = 2 x T_c.  P_ave/D_ave refresh every Morph_interval and JUMP;
+                         #   at MI=200 that step-change x MF blew the bed up at t=150 s (measured:
+                         #   MI={20,5} healthy past 400 s, MI=200 dead at 150). MI must (i) exceed
+                         #   the suspension relaxation T_c=H/(gamma w_s)=20 s to smooth suspension,
+                         #   and (ii) stay well below the blow-up time. 40 s does both. (The
+                         #   "MI>=200 s" note was for the OLD U=1.0 config where T_c was 10x this.)
     Aval_interval=200.0,   # [s]
     MinDepthPickup=0.01,   # [m]  0.1 (the shipped example) switches OFF bank-toe pickup,
                          #   which is the entire bank-retreat mechanism.  It cannot be 0
                          #   either: the log-law drag is singular at H = e k_s/30 = 1.1e-4 m.
+    # =================== GAP 1: secondary-flow closure (Ikeda 1981) ========
+    # The one mechanism a depth-averaged 2D model structurally lacks: the helical secondary
+    # flow of a bend, which advects fast near-surface fluid to the OUTER bank.  Ikeda-Parker-
+    # Sawai 1981 close it WITHOUT resolving the helix -- their tangential-momentum eq (3b),
+    #   U du'/ds = -g dxi'/ds - (Cf U^2/H)(2u'/U - xi'/H + eta'/H),
+    # carries the secondary flow only through the eta'/H term, with eta'/H = -A C n the
+    # equilibrium transverse bed tilt it produces (eq 6; A=2.89 alluvial, Suga 1963).  FUNWAVE
+    # ALREADY solves the other two friction terms exactly and nonlinearly (its own -Cd u|u|
+    # is the 2u'/U piece, its own -g d(eta)/ds is the -xi'/H piece), so the ONE missing term
+    # is (Cf U^2/H)(eta'/H).  Adding only that term turns the drag into a spatial modulation
+    #   Cd_eff = Cd (1 + A kappa n)       [this code's (kappa,n) sign convention]
+    # written to cd.txt and read via FRICTION_MATRIX.  Outer bank (kappa*n < 0, verified in
+    # tests/test_bathy.py 7b) gets Cd_eff < Cd -> the flow accelerates outward, reversing the
+    # depth-averaged free-vortex tendency that otherwise scours the INNER bank.  The sediment
+    # bed shear (mod_sediment.F:1328) uses its OWN log-law drag on the local speed |U|, NOT
+    # this Cd field, so the faster outer flow raises Tau_xy there with no steady-state
+    # Cd*U^2 = gHS cancellation -- gap-2 could never do this because it never touched the flow.
+    SecondaryFlow=True,        # gap-1 MOMENTUM half (friction modulation).  OFF = stock Cd.
+    # gap 1 BEDLOAD half -- the bar-CREATING mechanism.  The friction modulation above only
+    # redistributes the depth-averaged flow (weak at R/W~3: the k_f/sqrt(k_f^2+k_lam^2)~0.17
+    # adjustment/wavelength factor caps it).  The point BAR is a bedload feature: the helical
+    # secondary flow deflects the near-bed velocity (hence bedload) toward the INNER bank by
+    # delta = A kappa H / f_slope.  Balanced against the Talmon down-slope term (BedSlopeDeflection),
+    # the transverse bedload balance drives the bed to Ikeda eq (6) dz_b/dn = A kappa H -- deep
+    # outer, shallow inner.  mod_sediment.F reads the curvature field kappa from Curv_file.
+    SecondaryBedload=True,     # gap-1 A/B toggle for the bedload deflection.  OFF = flow-only.
+    BedRelaxation=False,       # the Zb->Zb_target relaxation (superseded by SecondaryBedload;
+                               #   had a Morph_factor over-amplification).  Kept OFF behind its
+                               #   own flag so the Talmon stabiliser can run without it.
+    # =================== GAP 2: transverse bed-slope deflection ============
+    # Added to mod_sediment.F (BedSlopeDeflection / A_bedslope).  Stock FUNWAVE = the Ikeda
+    # A=0 limit: bedload goes along atan2(V,U) only, so a bend scour hole cannot shed
+    # sediment sideways and deepens without bound (MEASURED: inner-bank hole reached H=0 at
+    # t=940 s and blew up -- the failure that looked numerical for a whole day was physics).
+    # The Talmon 1995 deflection tilts bedload downhill; A_bedslope is calibrated so the
+    # equilibrium transverse tilt reproduces Ikeda's alluvial A=2.89 (Suga 1963), capping the
+    # relief at A*C0*H = 1.3 m -- just below the 1.5 m runaway, so it ARRESTS the hole.
+    BedSlopeDeflection=True,   # gap-2 TALMON down-slope only now (the Zb_target relaxation moved
+                               #   to BedRelaxation).  ON as the STABILISER that balances the gap-1
+                               #   bedload deflection: deflection builds the bar, down-slope sheds
+                               #   sediment out of the deepening hole, and their balance IS Ikeda
+                               #   eq (6).  Without it the outer scour hole would run away.
+    A_bedslope=9.0,            # Talmon coefficient (bedload-direction form, kept for the flag)
+    A_ikeda=2.89,              # Ikeda alluvial (Suga 1963); no pre-tilt so full value OK.  Field alluvial is 2.89 (Suga
+                               #   1963) but that pre-tilt (1.30m) would push the inner bank to
+                               #   0.17m at the tightest apex and dry it -- reintroducing the
+                               #   oblique wet/dry failure.  2.5 keeps the inner bank >0.4m wet
+                               #   while capturing 87% of the alluvial tilt.  Reported, not the
+                               #   field value, because H_b=1.5m physically limits it.
+    Kslope=2000.0,             # tau_relax [s], inside the MF=5 window [432, 37500]: first-order relaxation of Zb toward the Ikeda
+                               #   tilt Zb_target.  NOT a diffusivity -- the Laplacian form
+                               #   injected a spurious source and blew up at t=20s (correct
+                               #   point-bar sign, uncontrolled amplitude).  >=5000 keeps the
+                               #   bed pre-tilted (build_case) so departure starts at ZERO -> no initial shock,
+                               #   tau can be short; 200s damps scour departures fast enough to compete.
     # =================== NUMERICS ==========================================
     dx=2.5,              # [m] -> 40 cells across the channel width
     spin_transits=1.0,   # phase-1 length, in channel transit times L_channel/U.  Per-run,
@@ -398,11 +459,17 @@ def build_case(lam, cfg):
         f"lam={lam:.0f}: |kappa|max={kmax:.3e} -> R/W={1/kmax/(2*cfg['b']):.2f} < 2, unstable")
     S = slope(cfg)
     h_sec = section_depth(n, cfg)
+    # gap 2: NO pre-tilt of the bed.  (Baking the Ikeda tilt into Depth_ini and zeroing the
+    # relaxation target made the term cancel bar formation -- sign flip, v3b, worse than OFF.)
+    # Keep a symmetric IC and let the Fortran relax Zb toward the NON-ZERO Ikeda target field
+    # Zb_target = A kappa H n (written to bedslope.txt below), with tau_relax just above the
+    # initial-shock floor of ~4300 s.  tilt stays zero.
+    tilt = np.zeros_like(h_sec)
     # bed drops downstream ALONG THE CHANNEL: using arc length s (not x) makes the
     # sinuosity correction S_valley = sinuosity * S_channel automatic instead of a
     # separate constant that can be forgotten.
     s0 = s.mean()
-    Depth = h_sec + S * (s - s0)
+    Depth = h_sec + tilt + S * (s - s0)
 
     # analytic normal flow: eta = -S(s - s0) so that H = eta + Depth = h_sec exactly,
     # and |u| = sqrt(g h S / Cd) directed along the local centreline tangent.
@@ -487,6 +554,11 @@ PERIODIC = F
   ! ---------------- PHYSICS ----------------
 DISPERSION = F
 Cd = {Cd}
+  ! gap 1: FRICTION_MATRIX reads a spatially-varying Cd (init.F:854, IN_Cd) that carries the
+  ! Ikeda-1981 secondary-flow closure Cd_eff = Cd(1 + A kappa n).  When SecondaryFlow is OFF
+  ! this is F and the scalar Cd above is used, reproducing stock FUNWAVE exactly.
+FRICTION_MATRIX = {friction_matrix}
+FRICTION_FILE = ../bathy/cd.txt
 C_smg = 0.25
 nu_bkg = 0.0
   ! ---------------- NUMERICS ----------------
@@ -515,6 +587,15 @@ Shields_cr_bedload = {Shields_cr_bedload}
 Tan_phi = {tan_phi}
 Kappa1 = 0.3333
 Kappa2 = 1.0
+BedSlopeDeflection = {bed_slope_deflection}
+A_bedslope = {A_bedslope}
+Kslope = {Kslope}
+BedSlope_file = ../bathy/bedslope.txt
+  ! gap 1 bedload half: secondary-flow deflection of bedload toward the inner bank
+SecondaryBedload = {secondary_bedload}
+A_secondary = {A_ikeda}
+Curv_file = ../bathy/kappa.txt
+BedRelaxation = {bed_relaxation}
 MinDepthPickup = {MinDepthPickup}
 Morph_factor = {Morph_factor}
 Morph_interval = {Morph_interval}
@@ -556,6 +637,12 @@ def phase_input(tag, phase, meta, cfg, ini_dir, total_time, bed_change):
     kw.update(tag=tag, phase=phase, nx=meta["nx"], ny=meta["ny"], ws=meta["ws"],
               px=px, py=py, ini_dir=ini_dir, total_time=total_time,
               bed_change="T" if bed_change else "F",
+              friction_matrix="T" if cfg.get("SecondaryFlow") else "F",
+              secondary_bedload="T" if cfg.get("SecondaryBedload") else "F",
+              bed_relaxation="T" if cfg.get("BedRelaxation") else "F",
+              bed_slope_deflection="T" if cfg.get("BedSlopeDeflection") else "F",
+              A_bedslope=cfg.get("A_bedslope", 9.0), Kslope=cfg.get("Kslope", 0.5),
+              A_ikeda=cfg.get("A_ikeda", 2.89),
               eta_west=+drop / 2.0, eta_east=-drop / 2.0)
     return INPUT_TEMPLATE.format(**kw), px * py
 
@@ -571,6 +658,40 @@ def write_case(lam, cfg):
     # i.e. Nglob rows of Mglob values -> transpose our (nx, ny) arrays.
     np.savetxt(os.path.join(base, "bathy", "depth.txt"), Depth.T, fmt="%14.7e")
     np.savetxt(os.path.join(base, "bathy", "hard.txt"), Zs.T, fmt="%14.7e")
+    # gap 1: the Ikeda-1981 secondary-flow closure as a spatially-varying drag.  eq (3b)+(6)
+    # give Cd_eff = Cd(1 + A kappa n); FUNWAVE reads it via FRICTION_MATRIX.  Sign is the
+    # GEOMETRICALLY VERIFIED one (test_bathy.py 7b: outer bank is kappa*n < 0 -> Cd_eff < Cd
+    # -> the flow accelerates outward).  Tapered linearly to 0 across the bank face (b -> toe)
+    # because the secondary flow is a channel-bend phenomenon, not a floodplain one, and
+    # floored/capped at [0.2, 1.8] Cd as a safety net (the taper keeps it inside [0.57,1.43]
+    # in the channel, so the clip never binds there -- it only guards the tight-apex ramp).
+    if cfg.get("SecondaryFlow"):
+        Xg1, Yg1 = np.meshgrid(x, y, indexing="ij")
+        nf1, _, _, _, kf1 = channel_coords(Xg1, Yg1, lam, cfg)
+        A_ik = cfg.get("A_ikeda", 2.89)
+        toe = cfg["b"] + cfg["m_bank"] * (cfg["H_b"] - cfg["h_plain"])
+        taper = np.clip((toe - np.abs(nf1)) / (toe - cfg["b"]), 0.0, 1.0)
+        cd_field = cfg["Cd"] * np.clip(1.0 + A_ik * kf1 * nf1 * taper, 0.2, 1.8)
+        np.savetxt(os.path.join(base, "bathy", "cd.txt"), cd_field.T, fmt="%14.7e")
+    # gap 1 BEDLOAD half: the channel curvature kappa, read by mod_sediment.F to deflect the
+    # bedload toward the inner bank by delta = A kappa H / f_slope (Ikeda 1981).  Tapered to the
+    # channel (the bedload magnitude already vanishes on the immobile shelf); sign is kappa's own.
+    if cfg.get("SecondaryBedload"):
+        Xg4, Yg4 = np.meshgrid(x, y, indexing="ij")
+        nf4, _, _, _, kf4 = channel_coords(Xg4, Yg4, lam, cfg)
+        toe = cfg["b"] + cfg["m_bank"] * (cfg["H_b"] - cfg["h_plain"])
+        taper4 = np.clip((toe - np.abs(nf4)) / (toe - cfg["b"]), 0.0, 1.0)
+        np.savetxt(os.path.join(base, "bathy", "kappa.txt"), (kf4 * taper4).T, fmt="%14.7e")
+    # gap 2: the Ikeda equilibrium tilt is now BAKED INTO Depth_ini (the pre-tilt in
+    # build_case), so the relaxation target for Zb (the CHANGE from Depth_ini) is ZERO -- the
+    # term simply damps scour departures back to the pre-tilted equilibrium.  Writing an
+    # explicit zero field keeps the Fortran read path uniform and self-documenting.
+    if cfg.get("BedSlopeDeflection"):
+        Xg2, Yg2 = np.meshgrid(x, y, indexing="ij")
+        nf2, _, _, _, kf2 = channel_coords(Xg2, Yg2, lam, cfg)
+        A_ik = cfg.get("A_ikeda", 2.89)
+        zbt = np.where(np.abs(nf2) <= cfg["b"], -A_ik * kf2 * cfg["H_c"] * nf2, 0.0)
+        np.savetxt(os.path.join(base, "bathy", "bedslope.txt"), zbt.T, fmt="%14.7e")
     for k, v in ini.items():
         np.savetxt(os.path.join(base, "ini", f"{k}.txt"), v.T, fmt="%14.7e")
 

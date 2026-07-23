@@ -100,18 +100,20 @@ def validate(base):
           f"<|ddep|> first interior bend / rest of the interior = {r:.2f}")
 
     # ---- G5: is Morph_factor small enough? --------------------------------
+    # bed change between consecutive OUTPUT snapshots, and the implied per-HYDRO-STEP move.
+    # The bed updates every hydro step (MORPHOLOGICAL_CHANGE, main.F:491), so the stability-
+    # relevant quantity is worst_per_output * dt_hydro/plot_intv, NOT worst_per_output itself.
     per = np.abs(np.diff(np.array([load(p) for p in sd]), axis=0))
-    worst = per.max(axis=0)[chan].max() / CFG["H_c"]
-    # morphodynamic Courant: bed move per HYDRO STEP must stay below ~1e-3 H or the coupled
-    # system goes unstable (measured: MF=20 already blew up, MF=1 stable, threshold ~126).
+    worst_out = per.max(axis=0)[chan].max()          # m, per plot_intv
     dt_hydro = CFG["CFL"] * CFG["dx"] / (CFG["U"] + np.sqrt(rm.G_ACCEL * CFG["H_c"]))
-    per_step = worst * CFG["H_c"] * dt_hydro / (CFG["plot_intv"] * CFG["Morph_factor"])
+    per_step = worst_out * dt_hydro / CFG["plot_intv"]
     check("G5 morphodynamic Courant: bed move < 1e-3 H per hydro step",
           per_step / CFG["H_c"] < 1e-3,
-          f"{per_step/CFG['H_c']:.1e} H/step at MF={CFG['Morph_factor']} "
-          f"(blows up above ~1e-3; measured stable MF ceiling ~126)")
-    check("G5 bed change per output interval < 15% of H", worst < 0.15,
-          f"max |ddep| per {CFG['plot_intv']:.0f} s = {worst*100:.1f}% of H_c")
+          f"{per_step/CFG['H_c']:.1e} H per {dt_hydro:.2f}s step (MF={CFG['Morph_factor']}, "
+          f"Morph_interval={CFG['Morph_interval']:.0f}s); blows up above ~1e-3")
+    check("G5 bed change per output interval < 15% of H", worst_out / CFG["H_c"] < 0.15,
+          f"max |ddep| per {CFG['plot_intv']:.0f} s = {100*worst_out/CFG['H_c']:.1f}% of H_c")
+    worst = worst_out / CFG["H_c"]
     tot = np.abs(dd)[chan].max() / CFG["H_c"]
     check("G5 total bed change is O(H), i.e. the run spans ~one bar", 0.05 < tot < 2.0,
           f"max |total ddep| = {tot*100:.0f}% of H_c over "

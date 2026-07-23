@@ -140,7 +140,10 @@ def main():
                      f"$t_{{morph}}$ = {th*CFG['Morph_factor']/86400:6.1f} d   "
                      f"(Morph_factor = {CFG['Morph_factor']})", fontsize=10)
         fig.canvas.draw()
-        writer.append_data(np.asarray(fig.canvas.buffer_rgba())[..., :3].copy())
+        buf = np.asarray(fig.canvas.buffer_rgba())[..., :3]
+        h, w = buf.shape[:2]                       # libx264 + yuv420p require EVEN dims
+        buf = buf[:h - (h % 2), :w - (w % 2)].copy()
+        writer.append_data(buf)
         plt.close(fig)
     writer.close()
     print(f"wrote {mp4}")
