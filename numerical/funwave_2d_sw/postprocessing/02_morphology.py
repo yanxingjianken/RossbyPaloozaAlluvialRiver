@@ -96,9 +96,17 @@ def main():
             if c["msk"] and f < len(c["msk"]):
                 ax.contour(c["X"], c["Y"], load(c["msk"][f]), levels=[0.5],
                            colors="k", linewidths=0.8)
-            # non-erodible buffer
+            # non-erodible buffer (dotted)
             for xb in (c["lam"], c["L"] - c["lam"]):
                 ax.axvline(xb, color="0.3", ls=":", lw=0.8)
+            # yOz cross-section locations (grey DASHED): the exact x the section movie
+            # (04_xsection.py) cuts, so the two figures always refer to the same place
+            for j, xs in enumerate(rm.section_x(c["lam"], CFG)):
+                ax.axvline(xs, color="0.45", ls="--", lw=1.2)
+                if i == 0:
+                    ax.text(xs, halves[i] * 0.86, f"S{j+1}", color="0.30", fontsize=8,
+                            ha="center", va="top",
+                            bbox=dict(boxstyle="round,pad=0.1", fc="white", ec="none", alpha=0.7))
             ax.set_xlim(0, Lmax); ax.set_ylim(-halves[i], halves[i])
             ax.set_aspect("equal")
             ax.set_ylabel("y [m]")
