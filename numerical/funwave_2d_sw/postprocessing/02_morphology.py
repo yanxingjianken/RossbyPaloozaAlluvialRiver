@@ -80,13 +80,16 @@ def main():
     writer = imageio.get_writer(mp4, fps=args.fps, codec="libx264",
                                 quality=8, macro_block_size=None)
 
+    # channel is ~60x longer than wide, so equal aspect is an unreadable strip AND its fixed
+    # height collides titles into the panel above.  Use auto aspect (fills the cell) with the
+    # cell heights in proportion to each case's half-width, so the y-scale is still consistent
+    # across panels -- a fixed vertical exaggeration -- and constrained_layout spaces titles.
     for f in range(nfr):
-        fig = plt.figure(figsize=(13, 3.2 + 5.0 * sum(halves) / Lmax))
-        gs = GridSpec(len(cs) + 1, 1, figure=fig,
-                      height_ratios=[h / sum(halves) * 6.0 for h in halves] + [0.35],
-                      hspace=0.28)
+        fig, axcol = plt.subplots(len(cs) + 1, 1, figsize=(13, 1.6 + 1.7 * len(cs)),
+                                  gridspec_kw=dict(height_ratios=[h / max(halves) for h in halves] + [0.14]),
+                                  constrained_layout=True)
         for i, c in enumerate(cs):
-            ax = fig.add_subplot(gs[i])
+            ax = axcol[i]
             dz = -(load(c["dep"][f]) - base0[i])
             pc = ax.pcolormesh(c["X"], c["Y"], dz, cmap="RdBu_r", vmin=-lim, vmax=lim,
                                shading="auto", rasterized=True)
@@ -108,15 +111,14 @@ def main():
                             ha="center", va="top",
                             bbox=dict(boxstyle="round,pad=0.1", fc="white", ec="none", alpha=0.7))
             ax.set_xlim(0, Lmax); ax.set_ylim(-halves[i], halves[i])
-            ax.set_aspect("equal")
             ax.set_ylabel("y [m]")
             ax.set_title(f"$\\lambda$ = {c['lam']:.0f} m,  A = {c['A']:.0f} m "
                          f"= {c['A']/(2*CFG['b']):.2f} W,  sinuosity {c['sinu']:.2f}"
                          f"   (A$k^2$ = {CFG['C0']:.3e} m$^{{-1}}$, same for both)",
-                         fontsize=10, loc="left")
+                         fontsize=9, loc="left")
             if i == len(cs) - 1:
-                ax.set_xlabel("down-valley x [m]")
-        cax = fig.add_subplot(gs[-1])
+                ax.set_xlabel("down-valley x [m]   (vertical exaggeration ~5x; banks FIXED)")
+        cax = axcol[-1]
         fig.colorbar(pc, cax=cax, orientation="horizontal",
                      label="bed elevation change $\\Delta z_b$ [m]   "
                            "(+ deposition, $-$ erosion)")
