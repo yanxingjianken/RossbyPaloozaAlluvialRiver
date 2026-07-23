@@ -15,11 +15,6 @@ erodible-bank / channel-Rossby-wave cooperation.
 | [`numerical/dedalus_meander/`](numerical/dedalus_meander/) | Dedalus v3 2D channel model of those equations (EVP + IVP: erodible-bank sin(kx) initial planforms) |
 | [`literature/`](literature/) | source PDFs incl. the 6/30 group-meeting deck |
 
-## ⚠ Visibility
-
-This repository is **private** and must stay private as long as `literature/` contains
-the four published (copyrighted) paper PDFs. Before any switch to public, strip them
-from the **entire git history** (`git filter-repo`), not just the tip.
 
 ## Sync
 
