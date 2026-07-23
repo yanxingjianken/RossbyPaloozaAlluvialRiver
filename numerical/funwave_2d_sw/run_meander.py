@@ -137,12 +137,15 @@ CONFIG = dict(
                          #   Cost: 10x more hydro time per morphological day, but a point bar
                          #   forms in ~1000 s morphological time, so it is affordable.
 
-    Morph_interval=40.0,   # [s] = 2 x T_c.  P_ave/D_ave refresh every Morph_interval and JUMP;
+    Morph_interval=30.0,   # [s] = 1.5 x T_c (T_c=20.1 s).  P_ave/D_ave refresh every MI and JUMP;
                          #   at MI=200 that step-change x MF blew the bed up at t=150 s (measured:
-                         #   MI={20,5} healthy past 400 s, MI=200 dead at 150). MI must (i) exceed
-                         #   the suspension relaxation T_c=H/(gamma w_s)=20 s to smooth suspension,
-                         #   and (ii) stay well below the blow-up time. 40 s does both. (The
-                         #   "MI>=200 s" note was for the OLD U=1.0 config where T_c was 10x this.)
+                         #   MI={20,5} healthy past 400 s, MI=200 dead at 150).  This flow is
+                         #   BEDLOAD-dominated (u*/w_s=0.45), so the bar is carried by the
+                         #   instantaneous bedload deflection, not the suspended load -- MI need
+                         #   only span ~1 T_c (light smoothing), and SMALLER MI is in fact safer
+                         #   (smaller refresh jump).  30 s sits between the measured-healthy MI=20
+                         #   and the config's old MI=40, giving margin for the longer production
+                         #   morph.  The ON/OFF decisive test ran clean at MI=10.
     Aval_interval=200.0,   # [s]
     MinDepthPickup=0.01,   # [m]  0.1 (the shipped example) switches OFF bank-toe pickup,
                          #   which is the entire bank-retreat mechanism.  It cannot be 0

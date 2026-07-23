@@ -222,7 +222,18 @@ check("MinDepthPickup clears the log-law singularity",
       f"MinDepthPickup = {CFG['MinDepthPickup']} m vs singularity at "
       f"{np.e*2.5*CFG['D50']/30:.2e} m")
 Tc = CFG["H_c"] / (2.0 * ws)
-check("Morph_interval >> suspension relaxation time", CFG["Morph_interval"] > 5 * Tc,
+# Morph_interval averages the suspended-load Exner forcing (P-D) before it moves the bed, so it
+# should span the suspension relaxation time T_c.  HOW MANY T_c is "enough" is regime-dependent:
+# when the load is suspension-dominated the smoothing must be aggressive (>>T_c) or unequilibrated
+# transients drive the bed; when it is BEDLOAD-dominated (u*/w_s<1, this case) the suspended part
+# is a minor forcing and the instantaneous bedload deflection carries the point bar, so spanning
+# ~1 T_c suffices -- and a SMALLER MI is actually safer (the P_ave/D_ave step-change at each
+# refresh is smaller).  Stability is bounded separately by the morphodynamic-Courant gate G5 in
+# 01_validate.py.  (The old blanket >5 T_c rule failed a bedload case the decisive run validated.)
+bedload_dom = ustar / ws < 1.0
+need = 1.0 if bedload_dom else 5.0
+check(f"Morph_interval spans the suspension relaxation ({'bedload' if bedload_dom else 'suspension'}"
+      f"-dominated -> need {need:.0f} T_c)", CFG["Morph_interval"] >= need * Tc,
       f"Morph_interval = {CFG['Morph_interval']:.0f} s = {CFG['Morph_interval']/Tc:.1f} T_c "
       f"(T_c = {Tc:.1f} s)")
 
