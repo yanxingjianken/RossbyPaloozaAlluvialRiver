@@ -126,43 +126,60 @@ def epsilon_table(d: geo.Design, m: int) -> dict:
 # --------------------------------------------------------------------------- #
 #  The BVP
 # --------------------------------------------------------------------------- #
-def _uh_of(hh, vh, ntil, p: NoteParams, lid: float = 1.0):
+def _uh_of(hh, vh, ntil, p: NoteParams, lid: float = 1.0, pgrad: float = 1.0):
     """Solve (28) algebraically for uh.
 
     ``lid`` scales the ONE term of (28) that carries the bare ratio
     ``eps2/eps1`` -- the depth-drag term ``Fc (eps2/eps1) hh/xi**2``.  It is the
     s-momentum half of the rigid-lid knob (see :func:`solve_mode`): ``lid=1`` is
     the full system (28); ``lid=0`` is the limit-2 s-momentum (note eq. 23),
-    which drops exactly this term while KEEPING the pressure/superelevation term
-    ``(eps2/(eps1 Fr**2)) i k hh`` (that one carries ``eps2/(eps1 Fr**2)``, O(1)
-    in BOTH limits, so it is never scaled).
+    which drops exactly this term while KEEPING the pressure/superelevation term.
+
+    ``pgrad`` scales the streamwise pressure-gradient / superelevation term
+    ``(eps2/(eps1 Fr**2)) i k hh`` -- Ikeda eq. (7)'s ``-U**2 d_s C'`` forcing of
+    the near-bank velocity.  Its coefficient ``eps2/(eps1 Fr**2)`` is O(1) in
+    BOTH the note's limits (the QGPV limit 2 keeps it), so it is NOT a
+    limit-selecting term; ``pgrad`` exists only to TEST that it is the term that
+    sets the downstream near-bank phase (``postprocessing/06_gravity_term.py``
+    shows pgrad: 1->0 collapses the downstream lag to ~0).  ``pgrad=1`` is
+    physical.
     """
     xi = p.xi(ntil)
     dxi = p.dxi(ntil)
     num = -(vh * dxi
-            + (p.eps2 / (p.eps1 * p.Fr**2)) * 1j * p.k * hh
+            + pgrad * (p.eps2 / (p.eps1 * p.Fr**2)) * 1j * p.k * hh
             - lid * p.Fc * (p.eps2 / p.eps1) * hh / xi**2)
     den = 1j * p.k * xi + 2.0 * p.Fc / xi
     return num / den
 
 
-def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10, lid: float = 1.0):
+def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10, lid: float = 1.0,
+               pgrad: float = 1.0):
     """Solve (28)-(30) for one streamwise mode.
 
     Returns ``(ntil, uh, vh, hh)`` as complex arrays.
     State vector for :func:`solve_bvp` is the real/imag split of ``(hh, q)``
     with ``q = xi**2 * vh``; ``solve_bvp`` is real-only.
 
-    ``lid`` is the **rigid-lid / gravity-reduction knob**.  It multiplies the
-    exactly two terms that carry the bare ratio ``eps2/eps1`` (the free-surface
-    divergence in continuity (30) and the depth-drag in s-momentum (28)) -- the
-    two terms the note's limit 2 orders out (``eps2/eps1 ~ eps``).  ``lid=1`` is
-    the FULL shallow-water system (28)-(30) = limit 1 / Thetis; ``lid=0`` is the
-    non-divergent limit-2 system (notes eqs 23-25) whose curl is the QGPV /
-    shear-Rossby equation (26).  Sweeping ``lid`` 1->0 therefore interpolates
-    continuously between the two flow models on ONE channel, and isolates which
-    term flips the near-bank ``u'_b`` phase.  The pressure/superelevation terms
-    (``eps2/(eps1 Fr**2)``) are NEVER touched -- they survive both limits.
+    ``lid`` is the **rigid-lid / free-surface-DIVERGENCE knob**.  It multiplies
+    the exactly two terms that carry the bare ratio ``eps2/eps1`` (the
+    free-surface divergence in continuity (30) and the depth-drag in
+    s-momentum (28)) -- the two terms the note's limit 2 orders out
+    (``eps2/eps1 ~ eps``).  ``lid=1`` is the FULL shallow-water system (28)-(30)
+    = limit 1 / Thetis; ``lid=0`` is the non-divergent limit-2 system (notes
+    eqs 23-25) whose curl is the QGPV / shear-Rossby equation (26).  Sweeping
+    ``lid`` 1->0 does NOT flip the near-bank phase (still downstream): the
+    divergence is not the migration-direction term.
+
+    ``pgrad`` scales the cross-channel-superelevation streamwise pressure
+    gradient (see :func:`_uh_of`) -- the term that DOES set the downstream phase
+    (``pgrad`` 1->0 collapses the lag).  Its coefficient ~ ``1/(Fr**2 alpha**2)``
+    is >= 1 for every subcritical (Fr<1) long-wave (alpha<1) meander and O(1/eps)
+    in Ikeda's limit 1, so it can never be small -- it is the shallow-water term
+    that forces downstream migration and is retained even by the QGPV limit 2.
+    The deck's rigid-lid vorticity model (no free surface at all) is the only
+    reduction that drops it, which is why it -- alone -- migrates upstream.
+    ``pgrad=1`` is physical.
     """
     ntil0 = np.linspace(-1.0, 1.0, n)
 
@@ -171,7 +188,7 @@ def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10, lid: float = 1.0
         q = y[2] + 1j * y[3]
         xi = p.xi(t)
         vh = q / xi**2
-        uh = _uh_of(hh, vh, t, p, lid=lid)
+        uh = _uh_of(hh, vh, t, p, lid=lid, pgrad=pgrad)
         # (29) -> hh'  (the cross-channel superelevation balance; the alpha**2
         # factors are geometric, not a limit choice, so lid never touches it)
         dhh = ((p.Ci / (p.eps1 * p.alpha**2)) * xi**2
@@ -196,7 +213,7 @@ def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10, lid: float = 1.0
     hh = y[0] + 1j * y[1]
     q = y[2] + 1j * y[3]
     vh = q / p.xi(ntil) ** 2
-    uh = _uh_of(hh, vh, ntil, p, lid=lid)
+    uh = _uh_of(hh, vh, ntil, p, lid=lid, pgrad=pgrad)
     return ntil, uh, vh, hh
 
 

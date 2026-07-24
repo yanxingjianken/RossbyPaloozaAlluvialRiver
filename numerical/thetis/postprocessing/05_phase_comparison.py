@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""The decisive phase comparison: WHY Thetis is downstream and the deck is upstream.
+"""SUPERSEDED 2026-07-24 by 06_gravity_term.py -- keep for history, do not cite.
+
+This figure labelled the deck's upstream curve "3-level QGPV flow (limit 2)" and
+claimed the direction difference is "gravity-dropping at every aspect ratio".
+Two later measurements corrected that (see 06_gravity_term.py):
+  * the note's OWN limit-2 QGPV (which retains the superelevation pressure) is
+    DOWNSTREAM, not upstream -- so the deck's upstream is NOT "the limit-2 QGPV";
+  * the deck's upstream survives to the continuum (N=3->91), so it is not a
+    3-level artefact -- it needs the free surface thrown away ENTIRELY.
+The term that actually sets the downstream phase is the cross-channel
+superelevation pressure ~1/(Fr^2 alpha^2) >= 1; see 06.
+
+The decisive phase comparison: WHY Thetis is downstream and the deck is upstream.
 
 Same erosion law (river.pdf p19 == Ikeda, E=eps*Cf, corrected PDF). The migration
 direction is the sign of the near-bank velocity u'_b phase relative to the bend

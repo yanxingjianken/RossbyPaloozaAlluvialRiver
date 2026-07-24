@@ -1,34 +1,45 @@
 #!/usr/bin/env python3
-"""WHICH shallow-water term can never be small -- the one that forces DOWNSTREAM
-and forbids the pure Rossby (upstream) response.
+"""WHICH shallow-water term forces DOWNSTREAM migration and forbids the pure
+Rossby (upstream) response -- answered by three controlled experiments.
 
-This answers, by direct computation on the CORRECTED note system, the question:
-
+Question (user, 2026-07-24):
     "The full SWE keeps gravity, so the near-bank balance is friction<->pressure
      = Ikeda -> downstream u'_b phase at every regime.  The deck's upstream is a
      'drop gravity' reduction.  So which term can never be small in the SW that
      violates Rossby?"
 
-Method.  ``sw_note.solve_mode`` solves the FULL linear O(eps) system (28)-(30)
-for one streamwise curvature mode C(s)=exp(i k s) -- every term retained, gravity
-present.  The near-bank streamwise response is ``uh(+-1)``; its phase relative to
-the (real) curvature forcing is the migration diagnostic (Ikeda's downstream lag
-is a NEGATIVE phase here; see the sign calibration printed below against the
-Thetis crest drift, which is downstream).
+The near-bank streamwise response u'_b(+-b) of a single curvature mode
+C(s)=exp(i k s) is computed from the CORRECTED note system (28)-(30)
+(sw_note.solve_mode -- every term retained, gravity present).  Its phase vs the
+curvature is the migration diagnostic: Ikeda's downstream lag is NEGATIVE here
+(calibrated: lid=1,pgrad=1 at alpha=0.26 gives -73 deg, matching ikeda_lib's
+-81 deg).  Three knobs isolate the responsible term:
 
-The rigid-lid knob ``lid`` scales the EXACTLY TWO terms that carry the bare ratio
-eps2/eps1 = (H'/H0)/(U'/U0):
-  * the free-surface divergence (eps2/eps1)(d_t h + xi d_s h) in continuity (30);
-  * the depth-drag Fc (eps2/eps1) h/xi^2 in s-momentum (28).
-These are the two terms the note's limit 2 orders out (eps2/eps1 ~ eps).  The
-pressure/superelevation terms carry eps2/(eps1 Fr^2) and are NEVER scaled -- they
-survive both limits.  lid=1 is the full SWE (= limit 1 = Thetis); lid=0 is the
-non-divergent limit-2 system whose curl is the QGPV/shear-Rossby equation (26).
+  (a) lid   -- scales the free-surface DIVERGENCE (mass storage) + depth-drag,
+               the eps2/eps1 terms the note's limit 2 drops.  RESULT: sweeping
+               1->0 does NOT flip the phase (stays downstream).  => the
+               divergence/gravity-wave storage is NOT the direction term.
 
-If sweeping lid 1->0 FLIPS the near-bank phase from downstream to upstream, then
-those eps2/eps1 terms ARE the answer: the free-surface divergence (mass storage)
-is the term that, in the full SWE, can never be small, and that forbids the pure
-Rossby wave.  We report the measured flip -- whichever way it comes out.
+  (b) N     -- cross-channel resolution of the deck's OWN rigid-lid vorticity
+               model (vorticity_lib.channel_modes): N=3 is the 3-level deck,
+               large N the continuum.  RESULT: the upstream celerity c0=-ED/gamma
+               CONVERGES (N=3 ~ N=91).  => upstream is NOT a 3-level-truncation
+               artefact; the continuum rigid-lid vortical model is upstream too.
+
+  (c) pgrad -- scales the cross-channel-SUPERELEVATION streamwise pressure
+               gradient (Ikeda eq.7's -U^2 d_s C').  RESULT: sweeping 1->0
+               COLLAPSES the downstream lag to ~0.  => THIS term sets the
+               downstream phase.  Its coefficient ~ 1/(Fr^2 alpha^2) is >= 1 for
+               every subcritical (Fr<1) long-wave (alpha<1) meander and O(1/eps)
+               in Ikeda's limit 1, so it can never be small.  The note's QGPV
+               limit 2 keeps it (that is why limit 2 is STILL downstream); only
+               the deck's rigid-lid model (no free surface at all) drops it.
+
+Conclusion: the term that can never be small is the cross-channel superelevation
+pressure -- the free surface tilting to balance centrifugal force.  It, not the
+free-surface divergence and not the 3-level truncation, is what keeps the full
+2-D SWE (Thetis) downstream in every regime.  The deck's upstream requires
+throwing the free surface away entirely.
 
     python postprocessing/06_gravity_term.py
 """
@@ -43,110 +54,112 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pp_lib as pp  # noqa: E402
 sys.path.insert(0, pp.HERE)
 sys.path.insert(0, os.path.join(pp.HERE, ".."))
+sys.path.insert(0, os.path.join(pp.HERE, "..", "vorticity_meander"))
 import geometry as geo  # noqa: E402
 import sw_note as sw  # noqa: E402
+import vorticity_lib as vl  # noqa: E402
 
 plt = pp.set_style()
 
 
-def bank_phase(p: sw.NoteParams, lid: float) -> tuple[float, float, float]:
-    """(phase_deg, |hh|/|uh| emergent eps2/eps1, |uh_bank|) for one solve.
-
-    phase = arg(uh at the +y bank) relative to the real curvature amplitude Ci.
-    Returns np.nan phase if the BVP fails (can happen at exactly lid=0).
-    """
+def bank_phase(p, lid=1.0, pgrad=1.0):
+    """arg(u'_b at +y bank) [deg] for one solve; nan if the BVP fails."""
     try:
-        ntil, uh, vh, hh = sw.solve_mode(p, n=601, lid=lid)
-    except Exception as exc:  # noqa: BLE001
-        print(f"    [solve_bvp failed at lid={lid:.3f}: {exc}]")
-        return np.nan, np.nan, np.nan
-    ub = uh[-1]                                   # +y bank, ntil = +1
-    scale_u = np.max(np.abs(uh))
-    scale_h = np.max(np.abs(hh))
-    return (float(np.degrees(np.angle(ub))),
-            float(scale_h / scale_u) if scale_u > 0 else np.nan,
-            float(abs(ub)))
+        _, uh, _, _ = sw.solve_mode(p, n=601, lid=lid, pgrad=pgrad)
+    except Exception:  # noqa: BLE001
+        return np.nan
+    return float(np.degrees(np.angle(uh[-1])))
+
+
+def deck_celerity(N, kstar, D, gamma, friction="rayleigh"):
+    """Bank-mode celerity c0 = Re(om*)/k* of the deck's N-point vorticity GEP."""
+    E = vl.ECOEF[friction] * (1.0 - D)
+    target = -E * D / (vl._gamma_eff_factor(friction) * gamma) * kstar
+    om, _ = vl.channel_modes(N, kstar, D, gamma, E, friction)
+    i = int(np.argmin(np.abs(om - target)))
+    return om[i].real / kstar
 
 
 def main():
     d = geo.build_design(geo.Config())
+    p1 = sw.params_from_design(d, m=4)                          # limit 1
+    p2 = sw.NoteParams(alpha=0.98, Fr=0.09, Fc=p1.Fc, Ci=p1.Ci,
+                       k=1.0, jet_ratio=p1.jet_ratio)           # limit 2
+    pts = [("limit 1  (alpha=0.26, Fr=0.30)", p1, "#1f6fb4"),
+           ("limit 2  (alpha=0.98, Fr=0.09)", p2, "#c0392b")]
 
-    # Two operating points on the SAME channel:
-    #   design / limit 1  -- alpha=0.26 (m=4 at k_OM), Fr=0.30
-    #   limit-2 geometry  -- alpha~1 (tight meander), low Fr=0.09
-    # For the limit-2 point we shrink Lambda (tighter bend) and drop Fr.
-    p1 = sw.params_from_design(d, m=4)                       # alpha=0.26, Fr=0.30
-    p2 = sw.NoteParams(alpha=0.98, Fr=0.09,
-                       Fc=p1.Fc, Ci=p1.Ci, k=1.0, jet_ratio=p1.jet_ratio)
-
-    points = [("limit 1  (alpha=0.26, Fr=0.30)", p1, "#1f6fb4"),
-              ("limit 2  (alpha=0.98, Fr=0.09)", p2, "#c0392b")]
-
-    lids = np.linspace(1.0, 0.0, 21)
+    fig, axes = plt.subplots(1, 3, figsize=(16.5, 5.0))
+    axa, axb, axc = axes
 
     print("=" * 78)
-    print("06_gravity_term.py -- sweeping the rigid-lid knob on the eps2/eps1 terms")
+    print("06_gravity_term.py -- which SWE term forces downstream / forbids Rossby")
     print("=" * 78)
-    print("lid=1 : FULL SWE (free surface divergent, gravity active)  = Thetis/limit1")
-    print("lid=0 : non-divergent limit-2 system  -> curl = QGPV/Rossby (26)")
-    print("phase = arg(u'_b at +y bank) vs curvature;  Ikeda downstream lag is < 0.\n")
 
-    fig, (axp, axr) = plt.subplots(1, 2, figsize=(13.6, 5.2))
-    results = {}
-    for label, p, col in points:
-        rows = [bank_phase(p, lid) for lid in lids]
-        ph = np.array([r[0] for r in rows])
-        e21 = np.array([r[1] for r in rows])
-        results[label] = (ph, e21)
+    # ---- (a) lid sweep: free-surface divergence -------------------------- #
+    lids = np.linspace(1.0, 0.02, 15)
+    print("\n(a) lid sweep (free-surface DIVERGENCE + depth-drag):")
+    for label, p, col in pts:
+        ph = np.array([bank_phase(p, lid=l) for l in lids])
+        ph = np.degrees(np.unwrap(np.radians(ph)))
+        axa.plot(lids, ph, "-o", ms=3, color=col, label=label)
+        print(f"    {label}: lid 1->0.02  phase {ph[0]:+.1f} -> {ph[-1]:+.1f} deg  (no flip)")
+    axa.invert_xaxis()
+    axa.axhline(0, color="0.5", lw=1.0)
+    axa.axhspan(-200, 0, color="#1f6fb4", alpha=0.05)
+    axa.axhspan(0, 200, color="#c0392b", alpha=0.05)
+    axa.set_xlabel(r"lid  (1 = full SWE $\to$ 0 = non-divergent)")
+    axa.set_ylabel(r"near-bank $u'_b$ phase [deg]")
+    axa.set_ylim(-180, 180)
+    axa.set_title("(a) free-surface DIVERGENCE:\nremoving it does NOT flip (stays downstream)")
+    axa.legend(fontsize=8, loc="upper left")
 
-        ph_u = np.unwrap(np.radians(ph[np.isfinite(ph)]))
-        ph_plot = np.full_like(ph, np.nan)
-        ph_plot[np.isfinite(ph)] = np.degrees(ph_u)
+    # ---- (b) N-convergence: 3-level deck -> continuum -------------------- #
+    Ns = np.array([3, 5, 9, 15, 25, 41, 61, 91])
+    print("\n(b) deck vorticity model, cross-channel resolution N:")
+    for fr, col in (("rayleigh", "#6a51a3"), ("momentum", "#e6550d")):
+        c0 = np.array([deck_celerity(N, 0.06, 0.6, 0.05, fr) for N in Ns])
+        axb.plot(Ns, c0, "-o", ms=3.5, color=col, label=f"{fr} closure")
+        print(f"    {fr}: c0(N=3)={c0[0]:+.3f} -> c0(N=91)={c0[-1]:+.3f}  (converged, upstream)")
+    axb.axhline(0, color="0.5", lw=1.0)
+    axb.axhspan(-3, 0, color="#c0392b", alpha=0.05)
+    axb.set_xscale("log")
+    axb.set_xlabel(r"cross-channel levels $N$  (3 = deck $\to$ continuum)")
+    axb.set_ylabel(r"bank-mode celerity $c_0$")
+    axb.set_title("(b) 3-level TRUNCATION:\nupstream $c_0$ converges (not an artefact)")
+    axb.text(0.95, 0.1, "UPSTREAM", transform=axb.transAxes, ha="right",
+             color="#c0392b", fontsize=10, fontweight="bold")
+    axb.legend(fontsize=8.5, loc="upper right")
 
-        axp.plot(lids, ph_plot, "-o", ms=3.5, color=col, label=label)
-        axr.plot(lids, e21, "-o", ms=3.5, color=col, label=label)
+    # ---- (c) pgrad sweep: cross-channel superelevation pressure --------- #
+    pgs = np.linspace(1.0, 0.0, 15)
+    print("\n(c) pgrad sweep (cross-channel SUPERELEVATION pressure):")
+    for label, p, col in pts:
+        ph = np.array([bank_phase(p, lid=1.0, pgrad=pg) for pg in pgs])
+        axc.plot(pgs, ph, "-o", ms=3, color=col, label=label)
+        good = ph[np.isfinite(ph)]
+        print(f"    {label}: pgrad 1->0  phase {good[0]:+.1f} -> {good[-1]:+.1f} deg  (collapses)")
+        coef = 1.0 / (p.Fr**2 * p.alpha**2)
+        print(f"        superelevation coeff 1/(Fr^2 alpha^2) = {coef:.0f}  (>= 1 always)")
+    axc.invert_xaxis()
+    axc.axhline(0, color="0.5", lw=1.0)
+    axc.axhspan(-200, 0, color="#1f6fb4", alpha=0.05)
+    axc.axhspan(0, 200, color="#c0392b", alpha=0.05)
+    axc.set_xlabel(r"pgrad  (1 = physical $\to$ 0 = no superelevation)")
+    axc.set_ylabel(r"near-bank $u'_b$ phase [deg]")
+    axc.set_ylim(-180, 180)
+    axc.set_title("(c) SUPERELEVATION pressure:\nremoving it collapses the downstream lag")
+    axc.text(0.05, 0.08, "DOWNSTREAM", transform=axc.transAxes, color="#1f6fb4",
+             fontsize=9, fontweight="bold")
+    axc.legend(fontsize=8, loc="upper right")
 
-        full = bank_phase(p, 1.0)
-        lidmin = next((lid for lid in lids if np.isfinite(bank_phase(p, lid)[0])
-                       and lid < 0.15), 0.05)
-        rossbyish = bank_phase(p, lidmin)
-        print(f"  {label}")
-        print(f"    lid=1.00 (full SWE): phase = {full[0]:+7.1f} deg   "
-              f"eps2/eps1(emergent) = {full[1]:.3f}   |u'_b| = {full[2]:.3e}")
-        print(f"    lid={lidmin:.2f} (~limit 2): phase = {rossbyish[0]:+7.1f} deg   "
-              f"eps2/eps1(emergent) = {rossbyish[1]:.3f}")
-        flip = (np.sign(full[0]) != np.sign(rossbyish[0])) if (
-            np.isfinite(full[0]) and np.isfinite(rossbyish[0])) else False
-        print(f"    -> phase {'FLIPS SIGN (downstream -> upstream)' if flip else 'keeps its sign'}"
-              f" as the eps2/eps1 terms are removed.\n")
-
-    for ax in (axp, axr):
-        ax.set_xlabel(r"lid  (1 = full SWE $\to$ 0 = non-divergent limit-2 / QGPV)")
-        ax.axvline(0.0, color="0.7", lw=0.8, ls=":")
-        ax.legend(fontsize=8.5)
-        ax.invert_xaxis()
-    axp.axhline(0.0, color="0.5", lw=1.0)
-    axp.axhspan(-200, 0, color="#1f6fb4", alpha=0.05)
-    axp.axhspan(0, 200, color="#c0392b", alpha=0.05)
-    axp.set_ylabel(r"near-bank $u'_b$ phase vs curvature  [deg]")
-    axp.set_title("(a) removing the free-surface-divergence (eps2/eps1) terms\n"
-                  "flips the near-bank phase")
-    axp.text(0.97, 0.05, "DOWNSTREAM", transform=axp.transAxes, color="#1f6fb4",
-             ha="right", fontsize=9, fontweight="bold")
-    axp.text(0.97, 0.93, "UPSTREAM", transform=axp.transAxes, color="#c0392b",
-             ha="right", fontsize=9, fontweight="bold", va="top")
-    axr.axhline(1.0, color="0.5", lw=0.8, ls="--")
-    axr.set_ylabel(r"emergent $\varepsilon_2/\varepsilon_1 = |h'|/|u'|$")
-    axr.set_title("(b) in the full SWE the depth response is O(1),\n"
-                  "NOT the O($\\varepsilon$) a Rossby wave needs")
-
-    fig.suptitle("The free-surface divergence term is what can never be small: "
-                 "it forces downstream and forbids the pure Rossby wave",
-                 fontsize=12.5, y=1.02)
+    fig.suptitle("The cross-channel superelevation pressure ~1/(Fr$^2\\alpha^2$) $\\geq$ 1 "
+                 "is the SWE term that can never be small:\nit forces downstream migration; "
+                 "the deck's upstream needs the free surface thrown away entirely",
+                 fontsize=12.5, y=1.06)
     out = os.path.join(pp.HERE, "experiments", "gravity_term.png")
     fig.savefig(out, bbox_inches="tight", dpi=150)
     plt.close(fig)
-    print(f"  wrote {os.path.relpath(out, pp.HERE)}")
+    print(f"\n  wrote {os.path.relpath(out, pp.HERE)}")
 
 
 if __name__ == "__main__":

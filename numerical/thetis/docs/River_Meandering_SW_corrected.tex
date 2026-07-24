@@ -13,6 +13,7 @@
 \usepackage{caption}
 
 \newcommand{\R}[1]{\textcolor{red}{#1}}
+\newcommand{\G}[1]{\textcolor{ForestGreen}{#1}}
 \newcommand{\dt}{\tilde{\partial}}
 \newcommand{\bu}{\boldsymbol{u}}
 
@@ -24,7 +25,10 @@
 \maketitle
 
 \begin{center}
-\R{\small Corrections in red.}
+\R{\small Corrections in red.}\\
+\G{\small Green: the cross-channel superelevation pressure $-g\,\partial_n h'$
+(non-dimensional coefficient $\varepsilon_2/(\varepsilon_1Fr^2\alpha^2)\sim
+1/(Fr^2\alpha^2)\ge1$) --- the shallow-water term that can never be small.}
 \end{center}
 
 \section{Shallow water equation}
@@ -44,24 +48,26 @@ We write it in channel-following coordinate:
 \end{equation}
 \begin{equation}
 \partial_t v + u\partial_s v + v\partial_n v - Cu^2
-  = -g\,\partial_n\R{(h+z_b)} - \frac{C_f|\bu|}{h}v ,
+  = \G{-g\,\partial_n}\R{(h+z_b)} - \frac{C_f|\bu|}{h}v ,
 \end{equation}
 \begin{equation}
 \partial_t h + \partial_s(uh) + \partial_n(vh) + Cvh = 0 .
 \end{equation}
 Assume $u=U_0+u'$, $v=v'$, $C=C'$, $h=H_0+h'$, and assume that
-$u'/U_0\sim h'/H_0\sim\mathcal{O}(\varepsilon)$.
+$u'/U_0\sim h'/H_0\sim \mathcal{O}(\varepsilon)$\R{ ($z_b\sim H_0=O(1)$: the bed
+sits in the base state $(H_0+z_b)$, not the perturbation --- only its
+secondary-flow tilt $z_b'$ of §3 is $O(\varepsilon)$)}.
 If we neglect all $\mathcal{O}(\varepsilon^2)$ terms, we have
 \begin{multline}
 \partial_t u' + U_0\partial_s U_0 + U_0\partial_s u' + u'\partial_s U_0
-  + v'\partial_n U_0 \\
+  + v'\partial_n U_0\\
 = -g\partial_s\R{(H_0+z_b)} - g\partial_s h'
   - \frac{C_fU_0^2}{\R{H_0}} - \frac{2C_fU_0u'}{\R{H_0}}
   + \frac{C_fU_0^2}{H_0^2}h'
 \end{multline}
 \begin{equation}
 \partial_t v' + U_0\partial_s v' - C'U_0^2
- = -g\partial_n\R{(H_0+z_b)} - g\partial_n h' - \frac{C_fU_0v'}{H_0}
+ = -g\partial_n\R{(H_0+z_b)} \G{- g\partial_n h'} - \frac{C_fU_0v'}{H_0}
 \end{equation}
 \begin{equation}
 \partial_t h' + \partial_s(U_0H_0) + \partial_s(U_0h') + \partial_s(u'H_0)
@@ -178,7 +184,7 @@ we have
 \R{\frac{VU_0}{\Lambda}\dt_t\tilde v}
  + \frac{VU_0}{\Lambda}\tilde\xi\dt_s\tilde v
  - \mathcal{C}U_0^2\tilde C\tilde\xi^2
-= -\frac{g\mathcal{H}}{b}\dt_n\tilde h
+= \G{-\frac{g\mathcal{H}}{b}\dt_n\tilde h}
   - \frac{C_fU_0V}{H_0}\,\R{\frac{\tilde v}{\tilde\xi}},
 \end{equation}
 \begin{equation}
@@ -204,7 +210,7 @@ we have
 \begin{equation}
 \R{\dt_t\tilde v}+\tilde\xi\dt_s\tilde v
  - \frac{Ci}{\varepsilon_1\alpha\gamma}\tilde C\tilde\xi^2
-= -\frac{\varepsilon_2}{\varepsilon_1Fr^2\alpha\gamma}\dt_n\tilde h
+= \G{-\frac{\varepsilon_2}{\varepsilon_1Fr^2\alpha\gamma}\dt_n\tilde h}
   - F_c\R{\frac{\tilde v}{\tilde\xi}},
 \end{equation}
 \begin{equation}
@@ -213,6 +219,18 @@ we have
  + \frac{\varepsilon_2}{\varepsilon_1}
    \R{\bigl(\dt_t\tilde h+\tilde\xi\dt_s\tilde h\bigr)} = 0 .
 \end{equation}
+\G{\small The green term is the cross-channel superelevation pressure: the free
+surface tilts across the channel to balance the centrifugal forcing
+$\propto Ci\,\tilde C$, and its streamwise gradient sets the near-bank $u'_b$
+(Ikeda's $-U_0^2\partial_s\mathcal{C}'$). Its coefficient
+$\varepsilon_2/(\varepsilon_1Fr^2\alpha\gamma)\sim1/(Fr^2\alpha^2)$ is $\ge1$ for
+every subcritical ($Fr<1$), long-wave ($\alpha<1$) meander --- $O(1/\varepsilon)$
+in limit~1, $O(1)$ in limit~2 --- so it can never be small. That is why limit~2
+(the QGPV limit, which \emph{keeps} it) still migrates downstream. Discarding the
+free surface entirely (rigid lid, no $\tilde h$) is the only way to remove it;
+the pure-vorticity model that then remains migrates upstream on its own
+$\beta$-Rossby dynamics.}
+
 We typically assume $\alpha=\gamma$. If we assume
 $Ci\sim\varepsilon_1\sim\varepsilon_2\sim\mathcal{O}(\varepsilon)$,
 $\alpha\sim\mathcal{O}(\varepsilon^{1/2})$, $Fr\sim F_c\sim1$,
@@ -225,7 +243,7 @@ the leading order equation becomes
 \end{equation}
 \begin{equation}
 \frac{1}{\varepsilon_1\alpha^2}Ci\,\tilde C\tilde\xi^2
-= \frac{1}{\varepsilon_1\alpha^2}\frac{\varepsilon_2}{Fr^2}\dt_n\tilde h,
+= \G{\frac{1}{\varepsilon_1\alpha^2}\frac{\varepsilon_2}{Fr^2}\dt_n\tilde h},
 \end{equation}
 \begin{equation}
 \dt_s\R{(\tilde\xi^2\tilde u)}+\dt_n\R{(\tilde\xi^2\tilde v)}
@@ -244,7 +262,7 @@ the leading order equation becomes
 \end{equation}
 \begin{equation}
 \R{\dt_t\tilde v}+\tilde\xi\dt_s\tilde v
-= -\frac{\varepsilon_2}{\varepsilon_1Fr^2}\dt_n\tilde h
+= \G{-\frac{\varepsilon_2}{\varepsilon_1Fr^2}\dt_n\tilde h}
   - F_c\R{\frac{\tilde v}{\tilde\xi}},
 \end{equation}
 \begin{equation}
@@ -276,7 +294,7 @@ We can put:
 \begin{equation}
 \R{\dt_t\tilde v}+\tilde\xi(\tilde n)\dt_s\tilde v
  - \frac{Ci}{\varepsilon_1\alpha^2}\tilde C(\tilde s)\tilde\xi(\tilde n)^2
- + \frac{\varepsilon_2}{\varepsilon_1Fr^2\alpha^2}\dt_n\tilde h
+ + \G{\frac{\varepsilon_2}{\varepsilon_1Fr^2\alpha^2}\dt_n\tilde h}
  + F_c\R{\frac{\tilde v}{\tilde\xi(\tilde n)}} = 0,
 \end{equation}
 \begin{equation}
@@ -313,5 +331,53 @@ $n=+b,\,0,\,-b$,}
 \end{equation}
 \R{with $E_e$ where $u'>0$ (erosion) and $E_d$ where $u'<0$ (deposition);
 $E_e=E_d$ gives constant width.}
+
+\R{\section{Secondary flow and the bed --- the $A$ switch}}
+
+\R{The note has no secondary-flow term; a depth-averaged 2-D model cannot
+generate the helical circulation of a bend, so its effect on the bed is
+\emph{imposed} as a curvature-slaved perturbation to the frozen depth of §1.
+Writing the total depth as $H(s,n)=H_0(n)+H_2'(s,n)$ with $H_0(n)$ the
+time-independent base profile, Ikeda, Parker \& Sawai (1981) eq.~(6) is}
+\begin{equation}
+\R{H_2'(s,n) = -A\,H_0(n)\,\mathcal{C}'(s)\,n ,\qquad n=b\tilde n ,}
+\end{equation}
+\R{a pool ($H_2'>0$, deeper) on the outer bank and a point bar on the inner
+bank, both proportional to the local centreline curvature $\mathcal{C}'(s)$.
+(This is Ikeda's bed perturbation $\eta'$, renamed to avoid clashing with the
+free surface $\eta$; the sign is fixed so the pool is on the outer bank. It
+enters the bed of §1 as $z_b=\bar z_b(n)+z_b'$ with $z_b'=-H_2'$.)  The
+secondary-flow strength is a switch,}
+\begin{equation}
+\R{A=0:\ \text{incised, no secondary flow}\ (H_2'\equiv0,\ \text{frozen bed});
+   \qquad A=2.89:\ \text{alluvial (Suga 1963).}}
+\end{equation}
+\R{$H_0(n)$ never changes in time; $H_2'$ carries no independent dynamics --- it
+is slaved to the slowly migrating planform (recomputed from the current
+curvature each morphological step), so ``the bed does not change'' still means
+$\partial_t z_b=0$.  With $h'=\xi'-\eta'$ and Ikeda's superelevation
+$\xi'=\mathcal{C}'U_0^2 n/g$, the depth perturbation is
+$h'/H_0=(F^2+A)\,\mathcal{C}'\tilde n$: $A$ and $F^2$ occupy the \emph{same}
+depth/drag slot, so $A=0$ leaves only $F^2\!\approx\!0.09$ while $A=2.89$ raises
+the bend forcing to $\approx2.98$ --- which is what turns bend decay into
+growth.}
+
+\R{\section{Boundary conditions}}
+
+\R{The note is an interior linear analysis and states no boundary conditions;
+the model closes the channel $[0,L]\times[-b,b]$ with}
+\begin{equation}
+\R{\underbrace{u_n=-\bar u(n)}_{\text{inflow }s=0},\qquad
+   \underbrace{\eta=\eta_{\mathrm{ref}}-I\,L}_{\text{outflow }s=L},\qquad
+   \underbrace{u_n=0}_{\text{banks }n=\pm b} .}
+\end{equation}
+\R{The flow is subcritical ($Fr<1$), so exactly one characteristic enters at
+each open boundary: the inflow prescribes the velocity profile only, the
+outflow the elevation only. Pinning $\eta$, $u$ and $v$ together at one open
+boundary would over-determine it (and, started from rest, launch a spurious
+bore). The banks are free-slip --- no normal flux, no wall drag beyond the bed
+friction. Drag is quadratic, $-C_f|\bu|\bu/h$ with $C_f=0.05$; a small
+horizontal viscosity $\nu=0.05\,\mathrm{m^2\,s^{-1}}$ is retained for
+DG stability (both stated here because the note carries neither).}
 
 \end{document}
