@@ -1,7 +1,10 @@
 thetis-src/
 outputs/
+experiments/*/outputs/
+experiments/*/RUN_*
 __pycache__/
 *.pyc
 *.aux
 *.log
 *.out
+*_preview.png

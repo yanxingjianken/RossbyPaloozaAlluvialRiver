@@ -166,7 +166,7 @@ def validate(base):
 
 
 def main():
-    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*")))
+    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*", "*")))
     # skip directories with no morph output: --calibrate leaves short spin-up-only dirs at the
     # INTERMEDIATE head_factors (the tag embeds hf, which --apply changes), and those are not runs
     bases = [b for b in bases if glob.glob(os.path.join(b, "morph", "output", "dep_*"))]

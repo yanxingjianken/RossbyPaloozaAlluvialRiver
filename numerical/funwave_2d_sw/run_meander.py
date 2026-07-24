@@ -144,15 +144,16 @@ CONFIG = dict(
     # T_flow ~ 0.2 s, T_c = H/(gamma w_s) ~ 20 s, T_bed ~ 1e7 s.  Morph_factor bridges the
     # last gap; Morph_interval must be >> T_c or the Exner forcing is an unequilibrated
     # suspension transient.  Both are printed by report() so the inflation is never invisible.
-    Morph_factor=1,      # [-] v2: NO morphological acceleration.  The bed and the flow advance on
-                         #   ONE clock, so the bed can never outrun the flow and no acceleration
-                         #   feedback instability is possible.  Justification: the doc's T_flow =
-                         #   0.20 s is the CFL STEP, not an adjustment time -- the real one is
-                         #   T_adjust = H/(Cd U) = 2292 s -- and the point bar was MEASURED to
-                         #   saturate at t ~ 1.5e5 s (transverse redistribution across the width,
-                         #   not the longitudinal bar building that T_bed estimates).  So the
-                         #   operative separation is T_eff/T_adjust ~ 65: directly integrable.
-                         #   This run is also the MF-convergence check against the archived MF=5.
+    Morph_factor=8,      # [-] v2 production MF, to SEE the bed+bank surface evolve in reasonable
+                         #   wall time.  Validity limit MF << T_morph/T_adjust: use the FASTEST
+                         #   morphological process (the bar), measured T_bar ~ 1.5e5 s, and
+                         #   T_adjust = H/(Cd U) = 2292 s, so T_bar/T_adjust ~ 65 and MF <= ~10 is
+                         #   safe (MF=1000 in the old doc was invalid).  MF=8 sits under that, and at
+                         #   A=0 the forcing (F^2=0.09) is far weaker than the A=2.89 case, so dz/dt
+                         #   is smaller and the true ceiling is HIGHER -- MF=8 is comfortably safe.
+                         #   The archived MF=1 run is the convergence anchor this is checked against.
+                         #   The hot-start (run_v2.py carries depth_cur.txt across chunks) makes each
+                         #   re-adjustment a cheap PERTURBATION relaxation, not a cold spin-up.
                          # (old note, retained) NOT 50: the gap-2 transverse relaxation has a stability
                          #   window tau in [|Zb_target| dt MF/(1e-3 H), H/(Zb_rate MF)] that is
                          #   EMPTY at MF=50 (4318 > 3750) -- which is why every ON run either blew
@@ -220,12 +221,20 @@ CONFIG = dict(
                                #   sediment out of the deepening hole, and their balance IS Ikeda
                                #   eq (6).  Without it the outer scour hole would run away.
     A_bedslope=9.0,            # Talmon coefficient (bedload-direction form, kept for the flag)
-    A_ikeda=2.89,              # Ikeda alluvial (Suga 1963); no pre-tilt so full value OK.  Field alluvial is 2.89 (Suga
-                               #   1963) but that pre-tilt (1.30m) would push the inner bank to
-                               #   0.17m at the tightest apex and dry it -- reintroducing the
-                               #   oblique wet/dry failure.  2.5 keeps the inner bank >0.4m wet
-                               #   while capturing 87% of the alluvial tilt.  Reported, not the
-                               #   field value, because H_b=1.5m physically limits it.
+    A_ikeda=0.0,               # v2 A=0: the Ikeda INCISED case (I81 PARAMS_INCISED), user decision
+                               #   2026-07-24.  A_secondary=A_ikeda (input :750), so A_ikeda=0 zeros
+                               #   ALL THREE secondary-flow closures at once: the friction modulation
+                               #   in cd.txt (:825), the bedload deflection delta=A*kappa*H (:838),
+                               #   and the equilibrium tilt bedslope.txt (:851).  The 3D helical
+                               #   circulation that eq(6) parameterises cannot be produced by a
+                               #   depth-averaged model at all, so A=0 is the HONEST 2D limit -- only
+                               #   the free-surface superelevation F^2=0.09 drives the bend, against a
+                               #   free vortex (u~1/r) that is faster on the INSIDE.  Which bank erodes
+                               #   is therefore a MEASURED OUTPUT, not an assumption (inner-bank
+                               #   erosion is a valid result).  KEPT active: the floodplain drag
+                               #   confinement in cd.txt (numerical, not secondary flow) and the
+                               #   Talmon down-slope diffusion A_bedslope (gravitational, not helical).
+                               #   (was 2.89, Ikeda alluvial from Suga 1963.)
     Kslope=2000.0,             # tau_relax [s], inside the MF=5 window [432, 37500]: first-order relaxation of Zb toward the Ikeda
                                #   tilt Zb_target.  NOT a diffusivity -- the Laplacian form
                                #   injected a spurious source and blew up at t=20s (correct
@@ -237,11 +246,11 @@ CONFIG = dict(
     spin_transits=1.0,   # phase-1 length, in channel transit times L_channel/U.  Per-run,
                          #   so both cases enter phase 2 equally converged; starting both
                          #   from rest instead would give B1 a 2.5x longer spin-up.
-    t_morph=100000.0,    # [s] v2: 1.0e5.  MF=1 so this IS the morphological span.  v1 reached
-                         #   1.5e5 s of morphological time and the bar was already SATURATING
-                         #   there (late growth rate 0.34-0.51 of early), so 1.0e5 s captures the
-                         #   approach to saturation at ~2/3 the cost: ~10 h/case at 64 ranks
-                         #   (measured 2.83 sim-s/wall-s), both cases concurrently.
+    t_morph=60000.0,     # [s] HYDRODYNAMIC integration time.  Morphological span = t_morph * MF =
+                         #   6e4 * 8 = 4.8e5 s ~ 5.6 days -- about 3x the A=2.89 bar-saturation time,
+                         #   deliberately generous because the A=0 forcing (F^2=0.09) is weaker and
+                         #   evolves the bed more slowly per morphological second.  Wall ~6 h/case at
+                         #   64-128 ranks (measured 2.83 sim-s/wall-s), both cases concurrently.
                          # (superseded note) 3e4 -> 1.5e5 because MF went 5 -> 1.  The MORPHOLOGICAL span is
                          #   t_morph*MF, so 1.5e5 s x 1 reproduces the same bed evolution the v1
                          #   run reached as 3e4 s x 5 -- but fully coupled, on one clock.
@@ -258,8 +267,10 @@ CONFIG = dict(
                          #   why calibration could never converge for B2.
     CFL=0.5,             # [-]  (0.3 tested: does NOT fix the B2 blow-up)
     MinDepth=0.01,       # [m] wet/dry threshold, also used as MinDepthFrc
-    plot_intv=1250.0,    # [s] snapshot interval -> 120 frames over t_morph=1.5e5 s.
-                         #   v2: 250 -> 1250.  At 250 s the morph phase wrote 600 frames x ~5 ASCII
+    plot_intv=1000.0,    # [s] snapshot interval -> 60 morph frames over t_morph=6e4 s (each frame
+                         #   is 8000 s of MORPHOLOGICAL time apart at MF=8, so the surface visibly
+                         #   changes frame to frame -- the point of this run).
+                         #   v2: 250 -> 1000.  At 250 s the morph phase wrote 600 frames x ~5 ASCII
                          #   fields x 618k values = 27.8 GB, formatted value by value.  120 frames
                          #   is already more than a movie needs (v1 movies used 120) and cuts that
                          #   to 5.6 GB.  Measured strong scaling saturates at 64 ranks (2.83
@@ -285,14 +296,24 @@ CONFIG = dict(
 # C0_for_amplitude() below and pinned here.  Equal A with a 2x wavelength ratio necessarily gives a
 # 4x curvature contrast (kappa ~ A k^2): B1 R/W = 3.28, B2 R/W = 12.52.  A = 50 m is the largest
 # common amplitude that keeps B1 off the tight end -- at A = 80 m B1 falls to R/W = 2.24, tighter
-# than the v1 case that blew up (R/W = 3.33 at MF=5).  MF=1 removes that blow-up mechanism (the bed
-# can no longer outrun the flow), which is what makes R/W = 3.28 acceptable here.
+# than the v1 case that blew up (R/W = 3.33).  Two things make R/W = 3.28 acceptable here: (1) the
+# v1 blow-up was at A=2.89 STRONG forcing, whereas this run is A=0 (F^2=0.09) -- a far weaker drive,
+# so the tight bend is much less stressed; (2) the hot-start decoupled scheme (run_v2.py) keeps the
+# flow quasi-steady between bed updates.  MF=8 is well under the T_bar/T_adjust~65 ceiling.
 #
 # head_factor is a SLOPE multiplier (length-independent) and is re-calibrated per case on U; the
 # seeds below are v1's gentle-reach value, since both v2 cases are far less sinuous (1.040, 1.010)
 # than the v1 pair and therefore need less head.
-RUNS = [dict(tag="B1", lam=780.0,  head_factor=1.6915, C0=3.052121e-03),   # 8 bends, R/W 3.28
-        dict(tag="B2", lam=1560.0, head_factor=1.6915, C0=7.985212e-04)]   # 4 bends, R/W 12.52
+#
+# 2x2 MATRIX (user 2026-07-24): {A=0 incised, A=2.89 alluvial} x {k=8 lam780, k=4 lam1560}.
+# Each `group` is its own subfolder (runs/A0/, runs/A2p89/).  `A_ikeda` per run overrides the CONFIG
+# default; A=2.89 turns the three secondary-flow closures back on (friction, deflection, tilt), A=0
+# leaves only F^2=0.09.  Same head_factor for both A values: the secondary friction modulation is
+# antisymmetric in n, so it does not change the channel-mean drag or U.
+_WV = [("B1", 780.0, 3.052121e-03), ("B2", 1560.0, 7.985212e-04)]   # (tag, lam, C0); R/W 3.28 / 12.52
+RUNS = ([dict(tag=t, lam=lam, C0=c0, head_factor=1.6915, A_ikeda=0.0,  group="A0")    for t, lam, c0 in _WV]
+      + [dict(tag=t, lam=lam, C0=c0, head_factor=1.6915, A_ikeda=2.89, group="A2p89") for t, lam, c0 in _WV])
+# -> RUNS[0]=A0/k8  RUNS[1]=A0/k4  RUNS[2]=A2p89/k8  RUNS[3]=A2p89/k4
 
 
 def C0_for_amplitude(lam, A_target, cfg):
@@ -360,6 +381,23 @@ def slope_design(cfg):
 def slope(cfg):
     """The slope actually built into the bed and the boundary head.  Calibrated."""
     return cfg["head_factor"] * slope_design(cfg)
+
+
+def loglaw_cd(H, cfg):
+    """Depth-dependent log-law drag  Cd(H) = kappa^2 / [ln(30 H / k_s) - 1]^2,
+    k_s = 2.5 D50, kappa^2 = 0.16.
+
+    This is FUNWAVE's OWN sediment-module bed-shear coefficient (mod_sediment.F:1372), so using it
+    for the MOMENTUM drag makes flow and transport see the SAME bed.  The scalar cfg['Cd'] is exactly
+    this evaluated once at H = H_c, and the momentum equation then held it FROZEN while the sediment
+    module recomputed the shear from the live depth every step -- a 1.5-2.2x mismatch on the shallow
+    bank face, and the whole point at A=0 where F^2 is the only bend driver.  Writing cd.txt from this
+    (and refreshing it from the evolving bed each morph chunk, run_v2.py) restores the consistency.
+    Equals cfg['Cd'] at H = H_c by construction; the argument is floored at 5 to stay off the log-law
+    singularity (30H/k_s = e) for ultra-shallow cells."""
+    ks = 2.5 * cfg["D50"]
+    arg = np.maximum(30.0 * np.maximum(H, cfg.get("MinDepth", 0.01)) / ks, 5.0)
+    return 0.16 / (np.log(arg) - 1.0) ** 2
 
 
 THETA_PEAK = 1.25578          # argmax of J0(theta)*theta ; J0(th)*th = 0.80736 there
@@ -621,7 +659,11 @@ def build_case(lam, cfg):
     # unphysically) WITHOUT a wet/dry boundary.  The channel's own normal-flow balance is unchanged,
     # so U and the head calibration are unaffected.
     toe = cfg["b"] + cfg["m_bank"] * (cfg["H_b"] - cfg["h_plain"])
-    Cd_ic = np.where(np.abs(n) > toe, cfg["Cd"] * cfg.get("Cd_floodplain_mult", 30.0), cfg["Cd"])
+    # IC drag uses the SAME depth-dependent log law as cd.txt, so the analytic initial state is
+    # already close to the solver's steady state (shorter spin-up) instead of being built on a
+    # scalar Cd the solver no longer uses.
+    cd_base_ic = loglaw_cd(h_sec, cfg)
+    Cd_ic = np.where(np.abs(n) > toe, cd_base_ic * cfg.get("Cd_floodplain_mult", 30.0), cd_base_ic)
     speed = np.where(h_sec > 0.0,
                      np.sqrt(G_ACCEL * np.maximum(h_sec, 0.0) * S / Cd_ic), 0.0)
     ini = dict(eta=eta, u=speed * tx, v=speed * ty)
@@ -801,10 +843,17 @@ def phase_input(tag, phase, meta, cfg, ini_dir, total_time, bed_change):
     return INPUT_TEMPLATE.format(**kw), px * py
 
 
+def case_base(cfg, tag):
+    """Output directory for a case: RUN_DIR / group / tag.  `group` (e.g. 'A0', 'A2p89') puts a
+    run in its own subfolder so the same (lam, C0) geometry can be run at several A values without
+    collision.  Defaults to RUN_DIR/tag when no group is set."""
+    return os.path.join(RUN_DIR, cfg.get("group", ""), tag)
+
+
 def write_case(lam, cfg):
     Depth, Zs, ini, x, y, meta = build_case(lam, cfg)
     tag = run_tag(lam, cfg)
-    base = os.path.join(RUN_DIR, tag)
+    base = case_base(cfg, tag)
     for sub in ("bathy", "ini", "spinup/output", "morph/output"):
         os.makedirs(os.path.join(base, sub), exist_ok=True)
 
@@ -825,7 +874,10 @@ def write_case(lam, cfg):
         A_ik = cfg.get("A_ikeda", 2.89)
         toe = cfg["b"] + cfg["m_bank"] * (cfg["H_b"] - cfg["h_plain"])
         taper = np.clip((toe - np.abs(nf1)) / (toe - cfg["b"]), 0.0, 1.0)
-        cd_field = cfg["Cd"] * np.clip(1.0 + A_ik * kf1 * nf1 * taper, 0.2, 1.8)
+        # BASE drag is now the DEPTH-DEPENDENT log law (see loglaw_cd), not the scalar Cd, so the
+        # momentum drag matches the sediment module's own bed shear cell by cell.  The secondary-flow
+        # modulation (A) and the floodplain multiplier ride on top of it.
+        cd_field = loglaw_cd(Depth, cfg) * np.clip(1.0 + A_ik * kf1 * nf1 * taper, 0.2, 1.8)
         # HIGH-friction floodplain beyond the bank toe (rough/vegetated): confines the flow to the
         # channel so it follows the bank, instead of the always-wet shelf carrying ~5% everywhere.
         # Ramped over ~4 dx from the toe so the drag is not a hard oblique step.

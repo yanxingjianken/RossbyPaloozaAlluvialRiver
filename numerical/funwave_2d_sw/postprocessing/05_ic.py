@@ -20,7 +20,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--match", default="", help="substring of the run tag to plot (default: all)")
     args = ap.parse_args()
-    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*")))
+    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*", "*")))
     bases = [b for b in bases if args.match in os.path.basename(b)]
     if not bases:
         print("no matching runs/ -- build with run_meander.py first"); return 1
@@ -90,7 +90,7 @@ def _plot(base):
                  "gap-1 secondary flow A=2.89 ON)", fontsize=11)
     # key the filename on lam AND curvature: B2 and B3 share lam=1560 (fix-C0 vs fix-A) and would
     # otherwise overwrite each other's per-case figure.
-    label = "_".join(os.path.basename(base).split("_")[:2])          # e.g. lam1560_C1p42e-3
+    label = os.path.basename(os.path.dirname(base)) + "_" + "_".join(os.path.basename(base).split("_")[:2])          # e.g. lam1560_C1p42e-3
     fp = os.path.join(OUT, f"IC_bank_migration_{label}.png")
     fig.savefig(fp, dpi=115); plt.close(fig)
     print(f"wrote {fp}")

@@ -30,7 +30,7 @@ def phase_frames(base, ph):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--max-frames", type=int, default=0)
     ap.add_argument("--fps", type=int, default=10); args = ap.parse_args()
-    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*")))
+    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*", "*")))
     if not bases:
         print("no runs/"); return 1
     for base in bases:
@@ -60,7 +60,7 @@ def _plot(base, args):
         glob.glob(os.path.join(base, "morph", "output", "dep_00001")) else g["Depth"]
     os.makedirs(OUT, exist_ok=True)
     # lam+curvature label: B2 and B3 share lam=1560 (fix-C0 vs fix-A), so lam alone would collide
-    label = "_".join(os.path.basename(base).split("_")[:2])
+    label = os.path.basename(os.path.dirname(base)) + "_" + "_".join(os.path.basename(base).split("_")[:2])
     mp4 = os.path.join(OUT, f"anomaly_bank_migration_{label}.mp4")
     w = imageio.get_writer(mp4, fps=args.fps, codec="libx264", quality=8, macro_block_size=None)
     dt_sp = float(CFG["plot_intv"])

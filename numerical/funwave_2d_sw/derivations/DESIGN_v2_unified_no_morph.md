@@ -58,7 +58,7 @@ are prefixed `sed:`.
 | symbol | definition | value here | why it matters |
 |---|---|---|---|
 | $\mathrm{Fr}$ | $U/\sqrt{gH}$ | 0.157 design, **0.18 measured** | **Froude number.** $<1$ subcritical (gravity waves outrun the flow, surface quasi-rigid); $\to1$ critical. Natural lowland rivers 0.1–0.3 |
-| $\beta$ | $b/H$ | 16.7 | **aspect ratio** — the controlling parameter for free alternate-bar instability; bars require $\beta$ above roughly 10–15 |
+| $\beta$ | $b/H$ | **22.5** (at the realised $H=2.22$ m; $b/H_c=16.7$ only if the centre depth is used) | **aspect ratio** — the controlling parameter for free alternate-bar instability; bars require $\beta$ above roughly 10–15. At $\beta=22.5$ the channel is *well* above threshold, so free bars can coexist with the forced response |
 | $\theta$ | $\tau_b/[(s_g-1)gD_{50}]$ | 0.19 channel centre | **Shields stress** — dimensionless bed shear. Motion requires $\theta>\theta_{cr}$ |
 | $\theta_{cr}$ | critical Shields | 0.055 suspension, 0.047 bedload | threshold of grain motion |
 | $u_*/w_s$ | shear velocity / settling velocity | 0.45 | $<1$ ⇒ **bedload-dominated** regime |
@@ -151,7 +151,7 @@ $$\boxed{\;(1-n_p)\,\partial_t z_b = D-P-\nabla\!\cdot\!\bm q_b\;}$$
 
 integrated cumulatively with $Z_b>0$ meaning erosion and capped by the hard bottom $Z_b\le Z_s$;
 $\bar P,\bar D$ are means over `Morph_interval`. The bed seen by the hydrodynamics is
-$$h=h_{\rm ini}+Z_b\cdot\mathrm{MF},\qquad \boxed{\mathrm{MF}=1\ \text{in v2}}$$
+$$h=h_{\rm ini}+Z_b\cdot\mathrm{MF},\qquad \boxed{\mathrm{MF}=8\ \text{in v2 (see §3.1)}}$$
 
 **Avalanching** (every `Aval_interval`): wherever the local slope exceeds the angle of repose,
 $$\text{if}\ \max_{j\in\mathcal N(i)}\frac{z_{b,i}-z_{b,j}}{\Delta x}>\tan\phi\ \text{and}\ Z_{b,i}<Z_{s,i}:
@@ -252,13 +252,35 @@ redistribution across the width, not the longitudinal bar-building that $T_{\rm 
 Hence the operative separation is $T_{\rm eff}/T_{\rm adjust}\approx1.5\times10^5/2292\approx65$,
 which is **directly integrable**.
 
-$$\boxed{\ \mathrm{MF}=1,\qquad t_{\rm hydro}=1.5\times10^{5}\ \mathrm{s}\ }$$
+$$\boxed{\ \mathrm{MF}=8,\qquad t_{\rm hydro}=6\times10^{4}\ \mathrm{s}\ \Rightarrow\
+  t_{\rm morph}=\mathrm{MF}\cdot t_{\rm hydro}=4.8\times10^{5}\ \mathrm{s}\ }$$
 
-One clock, fully coupled, no possibility of the bed outrunning the flow. `Morph_interval` stays
-30 s ($\approx1.5\,T_c$). This run also constitutes the MF-convergence check against the archived
-MF=5 result. $T_{\rm bank}$ implies $\varepsilon=b/(T_{\rm bank}U)=1.2\times10^{-8}$ — the standard
-natural range — and is **not reachable**; this study therefore claims bar and bend morphodynamics
-and the *phase* of bank response, not planform migration rate.
+**Choice of MF (updated 2026-07-24).** The validity limit is $\mathrm{MF}\ll T_{\rm morph}/T_{\rm adjust}$
+evaluated on the *fastest* morphological process (the bar): $T_{\rm bar}/T_{\rm adjust}\approx65$, so
+$\mathrm{MF}\le\sim10$ is safe and $\mathrm{MF}=1000$ (the old derivation) is not. **MF=8** sits under
+that ceiling; because this run is **A=0** (see below), the forcing $F^2=0.09$ is far weaker than the
+A=2.89 case, $\dot z_b$ is smaller, and the true ceiling is *higher* — MF=8 is comfortably safe. An
+MF=1 run is kept as the convergence anchor. Hot-starting (`run_v2.py` carries `depth_cur.txt` across
+chunks) makes each re-adjustment a cheap **perturbation** relaxation, not a cold spin-up — this is
+what makes the fast/slow timescale gap affordable. `Morph_interval` stays 30 s ($\approx1.5\,T_c$).
+
+$T_{\rm bank}$ implies $\varepsilon=b/(T_{\rm bank}U)=1.2\times10^{-8}$ — the standard natural range —
+and is **not reachable**; this study claims bar and bend morphodynamics and the *phase* of bank
+response, not planform migration rate.
+
+### 3.1a Secondary flow: A = 0 (incised case)
+
+Set $A_{\rm ikeda}=0$ (`A_secondary=A_ikeda`, so one switch zeros all three closures: the friction
+modulation, the bedload deflection $\delta=A\kappa H$, and the equilibrium tilt). This is I81's named
+**incised** parameter set, not an approximation to the alluvial one. The 3D helical circulation that
+$A$ parameterises cannot be produced by a depth-averaged model, so A=0 is the **honest 2D limit**:
+$h'/H=(F^2+A)C'\tilde n$ with $A=0$ leaves only the free-surface superelevation $F^2=0.09$ driving
+the bend, against a free vortex ($u\sim1/r$) faster on the *inner* bank. **Which bank erodes is
+therefore a measured output, not an assumption** — inner-bank erosion is a valid result. Kept active:
+the floodplain drag confinement in `cd.txt` (a numerical device, not secondary flow) and the Talmon
+down-slope bedload diffusion $A_{\rm bedslope}$ (gravitational, not helical). At A=0 the bedload
+direction is $\alpha=\operatorname{atan2}(v,u)$ with no transverse deflection. This matches the Thetis
+model (also A=0, incised) so the two are directly comparable — see `REVIEW_timescale_and_A0.md`.
 
 ### 3.2 Velocity matching; the Froude number is a constraint, not a target
 
@@ -282,13 +304,13 @@ spread is a consequence of matching $U$ and is accepted.
 
 Chasing $\mathrm{Fr}=0.10$ exactly would be actively harmful: reaching it by slowing ($U=0.54$)
 drops the channel to 1.2× critical Shields — the bed stops moving; reaching it by deepening
-($H=7.4$ m) drops $\beta$ from 16.7 to 6.8, below the free-bar threshold, suppressing the bars
+($H=7.4$ m) drops $\beta$ from 22.5 to 6.8, below the free-bar threshold, suppressing the bars
 under study.
 
-| | Fr | $\theta_{\rm channel}$ | $\beta=b/H$ |
+| | Fr | $\theta_{\rm channel}$ | $\beta=b/H$ (realised) |
 |---|---|---|---|
-| as configured | 0.157 | 0.138 (2.9× cr) | 16.7 |
-| slow to Fr=0.1 | 0.100 | **0.056 (1.2× cr)** | 16.7 |
+| as configured | 0.157 | 0.138 (2.9× cr) | 22.5 |
+| slow to Fr=0.1 | 0.100 | **0.056 (1.2× cr)** | 22.5 |
 | deepen to Fr=0.1 | 0.100 | 0.116 (2.5× cr) | **6.8** |
 
 ### 3.3 Case matrix
@@ -328,7 +350,8 @@ deepens the toe and the count rises, the outcome is limiter-controlled, not phys
 1. Rebuild geometry with enlarged `plain`; verify symmetric wall clearance.
 2. Calibrate $\mathcal H$ per case on $\mathrm{Fr}$ (§3.2), two iterations.
 3. Rigid-bed spin-up (`Bed_Change=F`) to steady state.
-4. Mobile-bed phase, MF=1, $t_{\rm hydro}=1.5\times10^5$ s, hot-started from the spun-up flow.
+4. Mobile-bed phase, MF=8, $t_{\rm hydro}=6\times10^4$ s ($t_{\rm morph}=4.8\times10^5$ s), hot-started,
+   run in chunks with the closure fields rebuilt from the migrating centreline between chunks.
 5. Gates each output: $\max\mathrm{Fr}$ and capped-cell count; $H_{\min}$; per-step $|\Delta z_b|$;
    wall clearance; mass-conservation residual.
 6. Compare against the archived MF=5 result — the MF-convergence check.

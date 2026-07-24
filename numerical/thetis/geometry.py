@@ -103,7 +103,7 @@ class Config:
 
     # --- numerics ---------------------------------------------------------
     n_cells_across: int = 28
-    pts_per_wavelength: int = 48
+    pts_per_wavelength: int = 30
 
 
 # --------------------------------------------------------------------------- #
@@ -140,13 +140,20 @@ class Design:
 
 
 def _ikeda_wavenumbers(cfg: Config):
-    """k_OM and k_c from the *verified* ikeda_lib, not from local arithmetic."""
+    """k_OM and k_c from the *verified* ikeda_lib, not from local arithmetic.
+
+    The design **grid** (wavelength, width, mesh) is always sized to the A=0
+    incised reference, so the A=0 and A=2.89 experiments are the *same physical
+    channel* and their comparison isolates the secondary-flow bed tilt (§6).
+    A_ikeda enters only through the bed tilt (:func:`secondary_bed_tilt`) and the
+    growth-band diagnostic k_c below.
+    """
     if IKEDA_DIR not in sys.path:
         sys.path.insert(0, IKEDA_DIR)
     from ikeda_lib import k_OM as _k_OM  # noqa: E402
 
-    k_om = float(_k_OM(Cf=cfg.Cf, A=cfg.A_ikeda, F=cfg.F_ref))
-    k_c = cfg.Cf * np.sqrt(2.0 * (cfg.A_ikeda + cfg.F_ref**2))
+    k_om = float(_k_OM(Cf=cfg.Cf, A=0.0, F=cfg.F_ref))          # A=0 design grid
+    k_c = cfg.Cf * np.sqrt(2.0 * (cfg.A_ikeda + cfg.F_ref**2))  # actual growth band
     return k_om, k_c
 
 
@@ -244,6 +251,37 @@ def base_elevation(x, d: Design, eta_ref: float = 0.0):
     return eta_ref - d.I * np.asarray(x, dtype=float)
 
 
+def secondary_bed_tilt(ntil, kappa_local, d: Design, A: float):
+    """Ikeda-eq.(6) secondary-flow bed elevation perturbation, dimensional.
+
+        eta'(s, n) = -A * H(n) * kappa(s) * n          (Ikeda 1981 eq. 6)
+
+    n = ntil*b is the transverse coordinate [m]; kappa(s) is the SIGNED
+    centreline curvature [1/m] (positive when curving toward +y).  This is the
+    helical-flow effect a depth-averaged model cannot self-generate -- it is
+    IMPOSED: the bed deepens toward the OUTER bank (pool) and shoals toward the
+    INNER bank (point bar), which is what biases the near-bank velocity and can
+    turn Ikeda's A term into growth (docs/model.md sec 6).
+
+    Sign check (validated in tests): at a crest of c(x)=a sin(kx), c''<0 so
+    kappa<0 and the centre of curvature is at -y (the inner bank is -y).  With
+    the minus sign, n<0 (inner) gives eta'<0 -> WRONG, so the physical tilt is
+    the NEGATIVE of the raw eq.(6): we deepen the outer bank.  The returned
+    quantity is the DEPTH increment (positive = deeper), i.e. -eta', already
+    sign-fixed so the pool is on the outer bank.
+
+    For A=0 this is identically zero and the bed is literally frozen.
+    """
+    if abs(A) < 1e-15:
+        return np.zeros_like(np.asarray(ntil, float) * np.asarray(kappa_local, float))
+    n = np.asarray(ntil, float) * d.b
+    H = base_depth(ntil, d)
+    # depth increment = -eta' = +A H kappa n  -> deeper where kappa*n > 0.
+    # At a crest kappa<0; outer bank is +y (n>0) there -> kappa*n<0 -> shallower,
+    # inner (n<0) -> kappa*n>0 -> deeper.  That is pool-on-inner (wrong), so flip:
+    return -A * H * np.asarray(kappa_local, float) * n
+
+
 # --------------------------------------------------------------------------- #
 #  Planform
 # --------------------------------------------------------------------------- #
@@ -287,6 +325,15 @@ def curvature(x, c):
     c1 = np.gradient(c, x, edge_order=2)
     c2 = np.gradient(c1, x, edge_order=2)
     return c2 / (1.0 + c1**2) ** 1.5
+
+
+def case_name(A_ikeda: float) -> str:
+    """Sub-experiment folder name from the secondary-flow parameter A."""
+    if abs(A_ikeda) < 1e-12:
+        return "A0_incised"
+    if abs(A_ikeda - 2.89) < 1e-9:
+        return "A2p89_alluvial"
+    return f"A{A_ikeda:g}".replace(".", "p")
 
 
 def wavenumber_of(m: int, d: Design) -> float:

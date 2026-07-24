@@ -90,7 +90,7 @@ def main():
     ap.add_argument("--fps", type=int, default=8)
     args = ap.parse_args()
 
-    cs = [c for c in (case(b) for b in sorted(glob.glob(os.path.join(ROOT, "runs", "*")))) if c]
+    cs = [c for c in (case(b) for b in sorted(glob.glob(os.path.join(ROOT, "runs", "*", "*")))) if c]
     if not cs:
         print("no morph output yet"); return 1
     nfr = min(len(c["us"]) for c in cs)

@@ -135,13 +135,15 @@ def coords_from_centreline(X, Y, x, yc, cfg):
     return n_out.reshape(X.shape), k_out.reshape(X.shape)
 
 
-def write_closure_fields(base, n, kap, cfg):
-    """Rewrite cd.txt / kappa.txt / bedslope.txt for the CURRENT (n, kappa). Mirrors write_case."""
+def write_closure_fields(base, n, kap, cfg, bed):
+    """Rewrite cd.txt / kappa.txt / bedslope.txt for the CURRENT (n, kappa) and the CURRENT bed.
+    Mirrors write_case, including the depth-dependent log-law Cd base -- so the momentum drag tracks
+    the evolving depth at chunk cadence, matching the sediment module."""
     b, toe = cfg["b"], cfg["b"] + cfg["m_bank"] * (cfg["H_b"] - cfg["h_plain"])
     A_ik = cfg.get("A_ikeda", 2.89)
     taper = np.clip((toe - np.abs(n)) / (toe - b), 0.0, 1.0)
     if cfg.get("SecondaryFlow"):
-        cd = cfg["Cd"] * np.clip(1.0 + A_ik * kap * n * taper, 0.2, 1.8)
+        cd = rm.loglaw_cd(bed, cfg) * np.clip(1.0 + A_ik * kap * n * taper, 0.2, 1.8)
         fp = np.clip((np.abs(n) - toe) / (4.0 * cfg["dx"]), 0.0, 1.0)
         cd = cd * (1.0 + (cfg.get("Cd_floodplain_mult", 30.0) - 1.0) * fp)
         np.savetxt(os.path.join(base, "bathy", "cd.txt"), cd.T, fmt="%14.7e")
@@ -186,10 +188,11 @@ def main():
     run = rm.RUNS[args.case]
     cfg = rm.cfg_for(run)
     lam = run["lam"]
-    assert cfg["Morph_factor"] == 1, "v2 requires Morph_factor = 1"
+    assert cfg["Morph_factor"] <= 10, \
+        f"MF={cfg['Morph_factor']} exceeds the T_bar/T_adjust~65 quasi-steady ceiling (use <=10)"
 
     tag, meta, t_spin, nr = rm.write_case(lam, cfg)
-    base = os.path.join(rm.RUN_DIR, tag)
+    base = rm.case_base(cfg, tag)
     print(f"[{run['tag']}] {tag}\n  spin-up {t_spin:.0f}s + morph {cfg['t_morph']:.0f}s (MF=1), "
           f"{nr} ranks, {meta['nx']}x{meta['ny']}", flush=True)
 
@@ -263,7 +266,7 @@ def main():
                 yc = detect_centreline(bed, x, y, cfg)
                 try:
                     n_new, k_new = coords_from_centreline(X, Y, x, yc, cfg)
-                    write_closure_fields(base, n_new, k_new, cfg)
+                    write_closure_fields(base, n_new, k_new, cfg, bed)   # bed = current Depth (still-water)
                     shift = np.nanmean(np.abs(yc - np.interp(x, x, np.where(np.isfinite(yc), yc, 0.0))))
                     print(f"    rebuilt closure fields; centreline valid on "
                           f"{100*np.isfinite(yc).mean():.0f}% of columns", flush=True)

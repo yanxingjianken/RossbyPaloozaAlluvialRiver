@@ -14,8 +14,21 @@ import sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FIG_DIR = os.path.join(HERE, "figures")
-OUT_DIR = os.path.join(HERE, "outputs")
+# Per-case experiment tree: experiments/<case>/{outputs,figures}.  set_case()
+# points OUT_DIR/FIG_DIR at one sub-experiment (A0_incised, A2p89_alluvial, ...).
+CASE = os.environ.get("THETIS_CASE", "A0_incised")
+FIG_DIR = os.path.join(HERE, "experiments", CASE, "figures")
+OUT_DIR = os.path.join(HERE, "experiments", CASE, "outputs")
+
+
+def set_case(case):
+    """Repoint OUT_DIR/FIG_DIR at experiments/<case>/."""
+    global CASE, FIG_DIR, OUT_DIR
+    CASE = case
+    FIG_DIR = os.path.join(HERE, "experiments", CASE, "figures")
+    OUT_DIR = os.path.join(HERE, "experiments", CASE, "outputs")
+    os.makedirs(FIG_DIR, exist_ok=True)
+    return CASE
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 

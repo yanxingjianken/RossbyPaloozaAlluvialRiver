@@ -174,6 +174,8 @@ def _apex_x(d: geo.Design, m: int) -> float:
 
 
 def main():
+    import sys as _sys
+    if len(_sys.argv)>1 and _sys.argv[1].startswith("A"): pp.set_case(_sys.argv[1])
     print("=" * 74)
     print("01_ic.py -- initial-condition figures")
     print("=" * 74)

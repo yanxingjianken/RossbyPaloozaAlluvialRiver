@@ -25,19 +25,24 @@ for i, r in enumerate(rm.RUNS):
 PY
 $MM postprocessing/05_ic.py 2>&1 | grep -E "wrote|base flow" || echo "  (IC plots failed -- continuing)"
 
-echo "[$(STAMP)] ===== 2/4  run B1 + B2 concurrently (64 ranks each) ====="
-$MM run_v2.py --case 0 > /net/flood/data2/users/x_yan/tmp/v2_B1.log 2>&1 &
-P1=$!
-$MM run_v2.py --case 1 > /net/flood/data2/users/x_yan/tmp/v2_B2.log 2>&1 &
-P2=$!
-wait $P1; R1=$?
-wait $P2; R2=$?
-echo "[$(STAMP)] B1 exit=$R1  B2 exit=$R2"
-tail -3 /net/flood/data2/users/x_yan/tmp/v2_B1.log
-tail -3 /net/flood/data2/users/x_yan/tmp/v2_B2.log
-if [ "$R1" -ne 0 ] && [ "$R2" -ne 0 ]; then
-  echo "[$(STAMP)] BOTH CASES FAILED"; touch V2_FAILED; exit 1
-fi
+echo "[$(STAMP)] ===== 2/4  run all 4 cases concurrently: {A0,A2p89} x {k8,k4} ====="
+# RUNS = [0]A0/k8(64) [1]A0/k4(128) [2]A2p89/k8(64) [3]A2p89/k4(128) = 384 ranks on 384 cores.
+NCASES=$($MM -c "import run_meander as rm; print(len(rm.RUNS))")
+PIDS=(); NAMES=()
+for i in $(seq 0 $((NCASES-1))); do
+  nm=$($MM -c "import run_meander as rm; r=rm.RUNS[$i]; print(r['group']+'_'+r['tag'])")
+  $MM run_v2.py --case $i > /net/flood/data2/users/x_yan/tmp/v2_${nm}.log 2>&1 &
+  PIDS+=($!); NAMES+=($nm)
+  echo "  launched case $i ($nm) pid ${PIDS[-1]}"
+done
+NFAIL=0
+for k in "${!PIDS[@]}"; do
+  wait "${PIDS[$k]}"; rc=$?
+  echo "[$(STAMP)] ${NAMES[$k]} exit=$rc"; tail -2 /net/flood/data2/users/x_yan/tmp/v2_${NAMES[$k]}.log
+  [ "$rc" -ne 0 ] && NFAIL=$((NFAIL+1))
+done
+echo "[$(STAMP)] $NFAIL of $NCASES cases failed"
+if [ "$NFAIL" -ge "$NCASES" ]; then echo "[$(STAMP)] ALL FAILED"; touch V2_FAILED; exit 1; fi
 
 echo "[$(STAMP)] ===== 3/4  gates ====="
 $MM postprocessing/01_validate.py > gates_v2.txt 2>&1 || true

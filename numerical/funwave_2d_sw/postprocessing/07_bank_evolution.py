@@ -112,7 +112,7 @@ def _plot(base, args):
 
     os.makedirs(OUT, exist_ok=True)
     # lam+curvature label: B2 and B3 share lam=1560 (fix-C0 vs fix-A), so lam alone would collide
-    label = "_".join(tag.split("_")[:2])
+    label = os.path.basename(os.path.dirname(base)) + "_" + "_".join(tag.split("_")[:2])
     mp4 = os.path.join(OUT, f"bank_evolution_{label}.mp4")
     w = imageio.get_writer(mp4, fps=args.fps, codec="libx264", quality=8, macro_block_size=None)
     st = max(1, int(round(len(x) / 80)))          # quiver stride down-valley
@@ -238,7 +238,7 @@ def main():
     ap.add_argument("--fps", type=int, default=8)
     ap.add_argument("--match", default="", help="only plot run tags containing this substring")
     args = ap.parse_args()
-    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*")))
+    bases = sorted(glob.glob(os.path.join(ROOT, "runs", "*", "*")))
     bases = [b for b in bases if args.match in os.path.basename(b)]
     if not bases:
         print("no matching runs/"); return 1
