@@ -47,7 +47,7 @@ def main():
         ("A0_incised", 8, "#1f6fb4", "--", "A=0  m=8"),
         ("A2p89_alluvial", 4, "#c0392b", "-", "A=2.89  m=4  (secondary flow)"),
         ("A2p89_alluvial", 8, "#c0392b", "--", "A=2.89  m=8"),
-        ("rossby_limit2", 15, "#2ca02c", "-", r"limit 2  $\alpha\approx$1  m=15  (Fr=0.09)"),
+        ("rossby_limit2", 12, "#2ca02c", "-", r"limit 2  $\alpha$=0.79  m=12  (Fr=0.09)"),
     ]
     for case, m, col, ls, lab in curves:
         r = load(case, m)
