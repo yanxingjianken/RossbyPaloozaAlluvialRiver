@@ -17,6 +17,7 @@ and celerity drawn as reference slopes.
 from __future__ import annotations
 
 import glob
+import re
 import os
 import sys
 
@@ -63,8 +64,8 @@ def main():
     print("=" * 74)
     print(f"03_growth_migration.py -- amplify/decay and up/downstream [{pp.CASE}]")
     print("=" * 74)
-    ms = sorted(int(re.search(r"run_m(\d+)\.npz", f).group(1))
-              for f in glob.glob(os.path.join(pp.OUT_DIR, "run_m*.npz")))
+    ms = sorted(int(mm.group(1)) for f in glob.glob(os.path.join(pp.OUT_DIR, "run_m*.npz"))
+                if (mm := re.match(r"run_m(\d+)\.npz$", os.path.basename(f))))
     series = {m: load_series(f"m{m}") for m in ms}
     if all(v is None for v in series.values()):
         raise SystemExit("no A(t) data -- run meander_thetis.py with flow_solver='steady'")
