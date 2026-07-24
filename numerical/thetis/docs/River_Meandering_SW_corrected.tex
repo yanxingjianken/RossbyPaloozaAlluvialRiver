@@ -1,9 +1,18 @@
 % River_Meandering_SW_corrected.tex
 %
 % Reconstruction of literature/River_Meandering_SW.pdf ("Shallow water analysis",
-% Yaoxuan Zeng, 2026-07-23) with minimal corrections marked in red.
-% Equation numbers (1)-(30) are preserved exactly; the new bank-erosion
-% section continues at (31).
+% Yaoxuan Zeng, 2026-07-23) with minimal corrections marked in RED.
+% GREEN marks the cross-channel superelevation pressure -g d_n h' (the term that
+% can never be small; forces downstream migration).
+% Two-timescale structure (2026-07-24):
+%   sec 1  FAST (flow) timescale T_f = Lambda/U_0 : the flow is STEADY (d_t->0),
+%          eqs (1)-(30), matching the author's 07-24 update (which also drops d_t).
+%   sec 2  SLOW timescale : bank erosion, re-non-dimensionalized on
+%          T_s = gamma b/(eps C_f eps_1 U_0); T_f/T_s = eps C_f eps_1/(gamma alpha)
+%          << 1 is the genuine small parameter.  eqs (31)-(37).
+%   sec 3  secondary flow / A switch (38)-(39); sec 4 boundary conditions (40).
+% A "Comparison with the July-24 update" note contrasts H_0=const vs H_0=xi^2,
+% Ci~O(eps) (forced QGPV) vs O(eps^2) (free), both steady.
 %
 \documentclass[11pt]{article}
 \usepackage{amsmath,amssymb,amsbsy}
@@ -31,7 +40,7 @@
 1/(Fr^2\alpha^2)\ge1$) --- the shallow-water term that can never be small.}
 \end{center}
 
-\section{Shallow water equation}
+\section{Shallow water equation --- the fast (flow) timescale}
 
 We write the shallow water equation
 \begin{equation}
@@ -164,32 +173,30 @@ while $H_0$ and the cross-sectional shape are the same at every $s$. ``The bed
 does not change'' means $\partial_t z_b=0$, not $\partial_s z_b=0$.}}
 \end{figure}
 
-We \R{retain the time dependence, and} non-dimensionalize the
+\R{On the fast time $T_f=\Lambda/U_0$ the flow equilibrates to the (fixed) banks,
+so we treat it as \emph{steady}, $\partial_t\to0$; the slow bank motion is restored
+in §2.} We non-dimensionalize the
 $\mathcal{O}(\varepsilon)$ equation with
 \begin{equation}
 \tilde u=u'/U,\ \tilde v=v'/V,\ \tilde s=s/\Lambda,\ \tilde n=n/b,\
-C'=\mathcal{C}\tilde C(s),\ \tilde h=h'/\mathcal{H}\R{,\
-\tilde t=t/T,\ T=\Lambda/U_0,\ \Lambda=\lambda/2\pi},
+C'=\mathcal{C}\tilde C(s),\ \tilde h=h'/\mathcal{H}\R{,\ \Lambda=\lambda/2\pi},
 \end{equation}
 we have
-\begin{multline}
-\R{\frac{UU_0}{\Lambda}\dt_t\tilde u}
- + \frac{UU_0}{\Lambda}\tilde\xi\dt_s\tilde u
- + \frac{VU_0}{b}\tilde v\dt_n\tilde\xi \\
+\begin{equation}
+\frac{UU_0}{\Lambda}\tilde\xi\dt_s\tilde u
+ + \frac{VU_0}{b}\tilde v\dt_n\tilde\xi
 = -\frac{g\mathcal{H}}{\Lambda}\dt_s\tilde h
   - \frac{2C_fU_0U}{H_0}\,\R{\frac{\tilde u}{\tilde\xi}}
   + \frac{C_fU_0^2\mathcal{H}}{H_0^2}\,\R{\frac{\tilde h}{\tilde\xi^2}},
-\end{multline}
+\end{equation}
 \begin{equation}
-\R{\frac{VU_0}{\Lambda}\dt_t\tilde v}
- + \frac{VU_0}{\Lambda}\tilde\xi\dt_s\tilde v
+\frac{VU_0}{\Lambda}\tilde\xi\dt_s\tilde v
  - \mathcal{C}U_0^2\tilde C\tilde\xi^2
 = \G{-\frac{g\mathcal{H}}{b}\dt_n\tilde h}
   - \frac{C_fU_0V}{H_0}\,\R{\frac{\tilde v}{\tilde\xi}},
 \end{equation}
 \begin{equation}
-\frac{\mathcal{H}U_0}{\Lambda}\R{\dt_t\tilde h}
- + \frac{\mathcal{H}U_0}{\Lambda}\tilde\xi\dt_s\tilde h
+\frac{\mathcal{H}U_0}{\Lambda}\tilde\xi\dt_s\tilde h
  + \frac{H_0U}{\Lambda}\dt_s\R{(\tilde\xi^2\tilde u)}
  + \frac{H_0V}{b}\dt_n\R{(\tilde\xi^2\tilde v)} = 0 .
 \end{equation}
@@ -201,14 +208,14 @@ F_c=C_f\Lambda/H_0,\ Ci=\mathcal{C}b
 \end{equation}
 we have
 \begin{equation}
-\R{\dt_t\tilde u}+\tilde\xi\dt_s\tilde u
+\tilde\xi\dt_s\tilde u
  + \frac{\gamma}{\alpha}\tilde v\dt_n\tilde\xi
 = -\frac{\varepsilon_2}{\varepsilon_1Fr^2}\dt_s\tilde h
   - 2F_c\R{\frac{\tilde u}{\tilde\xi}}
   + F_c\frac{\varepsilon_2}{\varepsilon_1}\R{\frac{\tilde h}{\tilde\xi^2}},
 \end{equation}
 \begin{equation}
-\R{\dt_t\tilde v}+\tilde\xi\dt_s\tilde v
+\tilde\xi\dt_s\tilde v
  - \frac{Ci}{\varepsilon_1\alpha\gamma}\tilde C\tilde\xi^2
 = \G{-\frac{\varepsilon_2}{\varepsilon_1Fr^2\alpha\gamma}\dt_n\tilde h}
   - F_c\R{\frac{\tilde v}{\tilde\xi}},
@@ -217,7 +224,7 @@ we have
 \dt_s\R{(\tilde\xi^2\tilde u)}
  + \frac{\gamma}{\alpha}\dt_n\R{(\tilde\xi^2\tilde v)}
  + \frac{\varepsilon_2}{\varepsilon_1}
-   \R{\bigl(\dt_t\tilde h+\tilde\xi\dt_s\tilde h\bigr)} = 0 .
+   \R{\tilde\xi\dt_s\tilde h} = 0 .
 \end{equation}
 \G{\small The green term is the cross-channel superelevation pressure: the free
 surface tilts across the channel to balance the centrifugal forcing
@@ -236,7 +243,7 @@ $Ci\sim\varepsilon_1\sim\varepsilon_2\sim\mathcal{O}(\varepsilon)$,
 $\alpha\sim\mathcal{O}(\varepsilon^{1/2})$, $Fr\sim F_c\sim1$,
 the leading order equation becomes
 \begin{equation}
-\R{\dt_t\tilde u}+\tilde\xi\dt_s\tilde u+\tilde v\dt_n\tilde\xi
+\tilde\xi\dt_s\tilde u+\tilde v\dt_n\tilde\xi
 = -\frac{\varepsilon_2}{\varepsilon_1Fr^2}\dt_s\tilde h
   - 2F_c\R{\frac{\tilde u}{\tilde\xi}}
   + F_c\frac{\varepsilon_2}{\varepsilon_1}\R{\frac{\tilde h}{\tilde\xi^2}},
@@ -248,20 +255,22 @@ the leading order equation becomes
 \begin{equation}
 \dt_s\R{(\tilde\xi^2\tilde u)}+\dt_n\R{(\tilde\xi^2\tilde v)}
  + \frac{\varepsilon_2}{\varepsilon_1}
-   \R{\bigl(\dt_t\tilde h+\tilde\xi\dt_s\tilde h\bigr)} = 0 .
+   \R{\tilde\xi\dt_s\tilde h} = 0 .
 \end{equation}
 Equations 20 and Equation 21 lead to the solution in Ikeda et al.
 
-If we assume that $Ci\sim\varepsilon_2\sim\mathcal{O}(\varepsilon^2)$,
-$\varepsilon_1\sim Fr^2\sim\mathcal{O}(\varepsilon)$, and set $\alpha=1$,
-the leading order equation becomes
+If we assume that $\varepsilon_2\sim\mathcal{O}(\varepsilon^2)$,
+$Ci\sim\varepsilon_1\sim Fr^2\sim\mathcal{O}(\varepsilon)$, and set $\alpha=1$
+\R{(so $Ci/\varepsilon_1=O(1)$: the curvature forcing survives --- a
+\emph{forced} QGPV, as in §1.1)}, the leading order equation becomes
 \begin{equation}
-\R{\dt_t\tilde u}+\tilde\xi\dt_s\tilde u+\tilde v\dt_n\tilde\xi
+\tilde\xi\dt_s\tilde u+\tilde v\dt_n\tilde\xi
 = -\frac{\varepsilon_2}{\varepsilon_1Fr^2}\dt_s\tilde h
   - 2F_c\R{\frac{\tilde u}{\tilde\xi}},
 \end{equation}
 \begin{equation}
-\R{\dt_t\tilde v}+\tilde\xi\dt_s\tilde v
+\tilde\xi\dt_s\tilde v
+ - \R{\frac{Ci}{\varepsilon_1\alpha^2}\tilde C\tilde\xi^2}
 = \G{-\frac{\varepsilon_2}{\varepsilon_1Fr^2}\dt_n\tilde h}
   - F_c\R{\frac{\tilde v}{\tilde\xi}},
 \end{equation}
@@ -270,10 +279,11 @@ the leading order equation becomes
 \end{equation}
 Equations 23-25 leads to the QGPV equation
 \begin{equation}
-\R{\dt_t\tilde\zeta}+\tilde\xi\dt_s\R{\tilde\zeta}+\tilde\beta\tilde v
+\tilde\xi\dt_s\R{\tilde\zeta}+\tilde\beta\tilde v
 = \R{-\frac{F_c}{\tilde\xi}\tilde\zeta
     + \frac{F_c}{\tilde\xi}\dt_n\tilde u
-    - \frac{2F_c\tilde u}{\tilde\xi^{2}}\dt_n\tilde\xi},
+    - \frac{2F_c\tilde u}{\tilde\xi^{2}}\dt_n\tilde\xi
+    + \frac{Ci}{\varepsilon_1\alpha^2}\tilde\xi^2\dt_s\tilde C},
 \end{equation}
 where
 \begin{equation}
@@ -282,9 +292,18 @@ where
 \R{\tilde\xi^2\tilde u=-\dt_n\tilde\psi,\quad
    \tilde\xi^2\tilde v=\dt_s\tilde\psi .}
 \end{equation}
+\R{With the \emph{flat-bed} choice $H_0=\mathrm{const}$ (rather than the balanced
+$H_0=H_0\tilde\xi^2$ derived at (9)--(11)), the friction denominators lose a
+power of $\tilde\xi$ ($\tilde u/\tilde\xi\to\tilde\xi\,\tilde u$), continuity (25)
+becomes the non-divergent $\dt_s\tilde u+\dt_n\tilde v=0$, and
+$\tilde\beta\to-\dt_{nn}\tilde\xi$; equations (23)--(27) then coincide
+term-for-term with the July-24 update. The slaved-bed form above ($H_0=\tilde\xi^2$)
+is the self-consistent one --- its base state actually exists --- and is what the
+Thetis model solves.}
+
 We can put:
 \begin{equation}
-\R{\dt_t\tilde u}+\tilde\xi(\tilde n)\dt_s\tilde u
+\tilde\xi(\tilde n)\dt_s\tilde u
  + \tilde v\dt_n\tilde\xi(\tilde n)
  + \frac{\varepsilon_2}{\varepsilon_1Fr^2}\dt_s\tilde h
  + 2F_c\R{\frac{\tilde u}{\tilde\xi(\tilde n)}}
@@ -292,7 +311,7 @@ We can put:
    \R{\frac{\tilde h}{\tilde\xi(\tilde n)^2}} = 0,
 \end{equation}
 \begin{equation}
-\R{\dt_t\tilde v}+\tilde\xi(\tilde n)\dt_s\tilde v
+\tilde\xi(\tilde n)\dt_s\tilde v
  - \frac{Ci}{\varepsilon_1\alpha^2}\tilde C(\tilde s)\tilde\xi(\tilde n)^2
  + \G{\frac{\varepsilon_2}{\varepsilon_1Fr^2\alpha^2}\dt_n\tilde h}
  + F_c\R{\frac{\tilde v}{\tilde\xi(\tilde n)}} = 0,
@@ -301,15 +320,82 @@ We can put:
 \dt_s\R{\bigl(\tilde\xi(\tilde n)^2\tilde u\bigr)}
  + \dt_n\R{\bigl(\tilde\xi(\tilde n)^2\tilde v\bigr)}
  + \frac{\varepsilon_2}{\varepsilon_1}
-   \R{\bigl(\dt_t\tilde h+\tilde\xi(\tilde n)\dt_s\tilde h\bigr)} = 0 .
+   \R{\tilde\xi(\tilde n)\dt_s\tilde h} = 0 .
 \end{equation}
 
-\R{\section{Bank erosion}}
+\R{\subsection*{From gravity to Rossby: the curl and its ordering}}
 
-\R{Let $y_b(s,t)$ be the lateral position of a bank and
-$u_b'=u'(s,\pm b)$ the near-bank velocity perturbation.
-With $\psi_1',\psi_2',\psi_3'$ the streamfunction perturbation at
-$n=+b,\,0,\,-b$,}
+\R{Equations (17)--(19) carry seven groups $\alpha,\gamma,\varepsilon_1,
+\varepsilon_2,Fr,F_c,Ci$ (with $\alpha=\gamma$); their relative orders decide
+whether the leading balance is the gravity/Ikeda response or a Rossby wave. The
+Rossby branch lives on the \emph{vorticity} equation, obtained by the curl
+$\dt_s(18)-\dt_n(17)$. Write $P_s=\varepsilon_2/(\varepsilon_1Fr^2)$ (the
+$\dt_s\tilde h$ coefficient in (17)) and
+$P_n=\varepsilon_2/(\varepsilon_1Fr^2\alpha\gamma)=P_s/(\alpha\gamma)$ (the
+$\dt_n\tilde h$ coefficient in (18)); the two pressure terms combine as}
+\begin{equation*}
+\R{\dt_s\!\big(P_n\dt_n\tilde h\big)-\dt_n\!\big(P_s\dt_s\tilde h\big)
+ =(P_n-P_s)\,\dt_s\dt_n\tilde h
+ =P_s\Big(\tfrac{1}{\alpha\gamma}-1\Big)\dt_s\dt_n\tilde h ,}
+\end{equation*}
+\R{which vanishes \emph{identically} iff $P_n=P_s$, i.e.\ $\boxed{\alpha\gamma=1}$,
+hence $\alpha=\gamma=1$: the pressure cancels in the curl. This is geometric and
+$Fr$-independent, and it is a \emph{coefficient match}, not a smallness --- with
+$Fr^2\sim\varepsilon_1$ the pressure $P_s=O(1)$ is a leading-order term of the
+un-curled momentum equations; it leaves the \emph{vorticity} budget only because
+$\alpha=1$ equalises the two length scales $\Lambda,b$. When $\alpha\ll1$ (Ikeda)
+$P_n=P_s/\alpha^2\gg P_s$: the $\dt_n\tilde h$ pressure dominates (18) ---
+cross-channel superelevation, a gravity response with no vorticity dynamics.}
+
+\R{With $\alpha=\gamma=1$, continuity (19) is non-divergent provided
+$\varepsilon_2/\varepsilon_1\ll1$ (rigid lid), so a streamfunction exists
+($\tilde\xi^2\tilde u=-\dt_n\tilde\psi,\ \tilde\xi^2\tilde v=\dt_s\tilde\psi$) and
+$\dt_s\tilde u+\dt_n\tilde v=-2(\dt_n\tilde\xi/\tilde\xi)\tilde v$. Substituting
+into the curled inertia gives the jet's background PV gradient}
+\begin{equation*}
+\R{\tilde\beta=\frac{2(\dt_n\tilde\xi)^2}{\tilde\xi}-\dt_{nn}\tilde\xi
+ =\tilde\xi^2\,\dt_n q_{\mathrm{base}},\qquad
+ q_{\mathrm{base}}=-\frac{\dt_n\tilde\xi}{\tilde\xi^2}}
+\end{equation*}
+\R{(base velocity $\tilde\xi$, base depth $\tilde\xi^2$). The
+$+2(\dt_n\tilde\xi)^2/\tilde\xi$ term is the depth-slaving signature --- a
+constant-depth base drops it and leaves the wrong $-\dt_{nn}\tilde\xi$; a uniform
+jet has $\tilde\beta=0$ and no wave. The leading-order vorticity equation is}
+\begin{equation*}
+\R{\tilde\xi\,\dt_s\tilde\zeta+\tilde\beta\,\tilde v
+ +\frac{F_c}{\tilde\xi}\big[\tilde\zeta-\tilde\xi^2\dt_n(\tilde u/\tilde\xi^2)\big]
+ =\frac{Ci}{\varepsilon_1}\,\tilde\xi^2\,\dt_s\tilde C ,\quad
+ \tilde\zeta=\dt_s\tilde v-\dt_n\tilde u }\tag{$\star$}
+\end{equation*}
+\R{--- advection of vorticity along the jet, the shear-Rossby restoring
+$\tilde\beta\tilde v$, quadratic bottom-drag (the factor-2 asymmetry
+$2F_c\tilde u/\tilde\xi$ vs $F_c\tilde v/\tilde\xi$), and the curvature forcing;
+exactly the $U q'_x+v'Q_y=\text{friction}$ form.}
+
+\R{The orderings that select each branch:}
+\begin{center}\small\color{red}
+\begin{tabular}{lccc}
+parameter & Rossby / QGPV & Gravity / Ikeda & role\\
+\hline
+$\alpha=\gamma$ & $O(1)\ [{=}1]$ & $O(\varepsilon^{1/2})$ & pressure cancels vs dominates\\
+$\varepsilon_2/\varepsilon_1$ & $O(\varepsilon)$ & $O(1)$ & (non-)divergent\\
+$Fr^2$ & $O(\varepsilon)$ & $O(1)$ & low- vs finite-Froude\\
+$Ci/\varepsilon_1$ & $O(1)$ forced & $O(1)$ & curvature source\\
+$F_c$ & $O(1)$ & $O(1)$ & friction leading order\\
+\end{tabular}
+\end{center}
+\R{The single switch is $\alpha\gamma$: $=1$ Rossby (pressure curls away), $\ll1$
+gravity (pressure dominates (18)); low $Fr$ is the consistent secondary marker.
+Forced vs free is $Ci/\varepsilon_1$ ($O(1)$ keeps the source through
+$\dt_s\tilde C$; $\ll1$ leaves the free shear-Rossby wave).}
+
+\R{\section{Slow timescale: bank migration}}
+
+\R{Section 1's flow is steady on the fast time $T_f=\Lambda/U_0$: given the banks
+it equilibrates within a few advection times. The banks themselves move on a much
+slower time set by the erosion law. Let $y_b(s,t)$ be a bank's lateral position
+and $u_b'=u'(s,\pm b)$ the near-bank velocity from §1; with
+$\psi_1',\psi_2',\psi_3'$ the streamfunction perturbation at $n=+b,\,0,\,-b$,}
 \begin{equation}
 \R{\psi_1'=\bar u(b)\,y_b=U_0\,y_b ,}
 \end{equation}
@@ -331,6 +417,28 @@ $n=+b,\,0,\,-b$,}
 \end{equation}
 \R{with $E_e$ where $u'>0$ (erosion) and $E_d$ where $u'<0$ (deposition);
 $E_e=E_d$ gives constant width.}
+
+\R{\paragraph{The slow timescale.} How long does a bank take to move? Scale
+$y_b\sim b$ and $u_b'\sim U=\varepsilon_1U_0$, and rescale time $t=T_s\tau$ in (34):}
+\begin{equation}
+\R{\gamma\,\frac{b}{T_s}\,\partial_\tau\tilde y_b=\varepsilon C_f\,U\,\tilde u_b'
+ \quad\Longrightarrow\quad
+ T_s=\frac{\gamma\,b}{\varepsilon C_f\,U}
+    =\frac{\gamma\,b}{\varepsilon C_f\,\varepsilon_1U_0},}
+\end{equation}
+\R{chosen so the bank evolves at $O(1)$, $\partial_\tau\tilde y_b=\tilde u_b'$.
+The flow and the bank are thus non-dimensionalized by \emph{different} time
+parameters --- $T_f=\Lambda/U_0$ (advection) and $T_s$ (erosion) --- with ratio}
+\begin{equation}
+\R{\frac{T_f}{T_s}=\frac{\varepsilon C_f\,\varepsilon_1}{\gamma\,\alpha}\ll1,
+ \qquad\alpha=\frac{b}{\Lambda}.}
+\end{equation}
+\R{This ratio --- the product of the erosion coefficient $\varepsilon C_f$ and the
+flow perturbation $\varepsilon_1$, \emph{not} the $\varepsilon$ of §1 --- is the
+genuine small parameter of the morphodynamics. Because $T_f/T_s\ll1$, the
+$\partial_t$ acting on the flow is negligible: this is precisely why §1 is steady,
+the flow adiabatically following the instantaneous planform while all time
+evolution lives on the bank. The meander grows and migrates on $T_s$.}
 
 \R{\section{Secondary flow and the bed --- the $A$ switch}}
 
