@@ -61,7 +61,11 @@ CONFIG = dict(
                          #   (see section_depth).  0.20 m keeps the shelf below the erosion
                          #   threshold (tau/tau_cr = 0.19) and leaks ~1.7%/unit width.
     freeboard=1.5,       # [m] retained only for the figure scripts
-    plain=25.0,          # flat floodplain beyond the bank toe [m]
+    plain=75.0,          # flat floodplain beyond the bank toe [m].  v2: 25 -> 75, i.e. +50 m of
+                         #   MIGRATION HEADROOM.  v1 measured only 36-44 m of clearance from the
+                         #   bank edge to the closed y-wall (~0.4 W); bed change AT the wall was
+                         #   exactly 0.000 m so no sponge is needed, but a migrating bank must not
+                         #   be allowed to reach it.  Gate on clearance every run.
     Cd_floodplain_mult=30.0,  # [-] drag multiplier on the always-wet floodplain (rough/vegetated).
                          #   Confines the flow to the channel (shelf otherwise carries ~5% at 0.3 m/s
                          #   along the meander tangent) WITHOUT a wet/dry boundary.  Channel unchanged.
@@ -89,8 +93,16 @@ CONFIG = dict(
     # artefact's scale is the sediment adaptation length (L_a = U H/(gamma w_s) ~ 20 m)
     # plus the flow adjustment, neither of which scales with the bend wavelength.  Counting
     # bends instead would discard 33% of B1's reach but only 17% of B2's.
-    buffer_len=1560.0,   # [m] -> interior 3120 m = 3 x 1040 = 2 x 1560, whole bends in both
-    straight_len=520.0,  # [m] of the buffer that is DEAD STRAIGHT before the amplitude ramp
+    interior_len=6240.0, # [m] the ANALYSED reach: 8 x 780 = 4 x 1560, whole bends in both cases.
+                         #   The domain is interior + 2*buffer (see reach_length).
+    buffer_len=1950.0,   # [m] = straight_len + 1560.  The AMPLITUDE RAMP is buffer-straight =
+                         #   1560 m = 2 x lam(B1) = 1 x lam(B2): an INTEGER number of wavelengths
+                         #   in BOTH cases.  This is what puts the straight lead-in/lead-out ON
+                         #   THE AXIS: measured straight offset -3.3 m (B1) and +0.1 m (B2) from
+                         #   the bend mid-range.  A ramp spanning a fractional wavelength makes
+                         #   the first bend weaker than the rest, which biases the excursion and
+                         #   throws the straights off-axis (measured +40 m at the old 1040 m ramp).
+    straight_len=390.0,  # [m] of the buffer that is DEAD STRAIGHT before the amplitude ramp
                          #   starts.  The tide sponge is 30 cells (75 m); putting it in a
                          #   genuinely uniform straight channel is the only place where the
                          #   BC state (U = U_design, V = 0, eta = const) is exactly right.
@@ -132,7 +144,16 @@ CONFIG = dict(
     # T_flow ~ 0.2 s, T_c = H/(gamma w_s) ~ 20 s, T_bed ~ 1e7 s.  Morph_factor bridges the
     # last gap; Morph_interval must be >> T_c or the Exner forcing is an unequilibrated
     # suspension transient.  Both are printed by report() so the inflation is never invisible.
-    Morph_factor=5,      # [-] integer.  NOT 50: the gap-2 transverse relaxation has a stability
+    Morph_factor=1,      # [-] v2: NO morphological acceleration.  The bed and the flow advance on
+                         #   ONE clock, so the bed can never outrun the flow and no acceleration
+                         #   feedback instability is possible.  Justification: the doc's T_flow =
+                         #   0.20 s is the CFL STEP, not an adjustment time -- the real one is
+                         #   T_adjust = H/(Cd U) = 2292 s -- and the point bar was MEASURED to
+                         #   saturate at t ~ 1.5e5 s (transverse redistribution across the width,
+                         #   not the longitudinal bar building that T_bed estimates).  So the
+                         #   operative separation is T_eff/T_adjust ~ 65: directly integrable.
+                         #   This run is also the MF-convergence check against the archived MF=5.
+                         # (old note, retained) NOT 50: the gap-2 transverse relaxation has a stability
                          #   window tau in [|Zb_target| dt MF/(1e-3 H), H/(Zb_rate MF)] that is
                          #   EMPTY at MF=50 (4318 > 3750) -- which is why every ON run either blew
                          #   up (tau too small) or was ON==OFF (tau too large).  MF<=10 opens the
@@ -216,7 +237,15 @@ CONFIG = dict(
     spin_transits=1.0,   # phase-1 length, in channel transit times L_channel/U.  Per-run,
                          #   so both cases enter phase 2 equally converged; starting both
                          #   from rest instead would give B1 a 2.5x longer spin-up.
-    t_morph=30000.0,     # [s] phase-2 hydrodynamic time, IDENTICAL for both runs.  At MF=5 the
+    t_morph=100000.0,    # [s] v2: 1.0e5.  MF=1 so this IS the morphological span.  v1 reached
+                         #   1.5e5 s of morphological time and the bar was already SATURATING
+                         #   there (late growth rate 0.34-0.51 of early), so 1.0e5 s captures the
+                         #   approach to saturation at ~2/3 the cost: ~10 h/case at 64 ranks
+                         #   (measured 2.83 sim-s/wall-s), both cases concurrently.
+                         # (superseded note) 3e4 -> 1.5e5 because MF went 5 -> 1.  The MORPHOLOGICAL span is
+                         #   t_morph*MF, so 1.5e5 s x 1 reproduces the same bed evolution the v1
+                         #   run reached as 3e4 s x 5 -- but fully coupled, on one clock.
+                         # (old note, retained) At MF=5 the
                          #   morphological span is t_morph*MF = 1.5e5 s ~ 1.74 d, several point-
                          #   bar development times for the gap-1 secondary-flow deflection to
                          #   build the bar.  plot_intv=250 -> 120 frames.  Wall ~40 min/case;
@@ -229,7 +258,14 @@ CONFIG = dict(
                          #   why calibration could never converge for B2.
     CFL=0.5,             # [-]  (0.3 tested: does NOT fix the B2 blow-up)
     MinDepth=0.01,       # [m] wet/dry threshold, also used as MinDepthFrc
-    plot_intv=250.0,     # [s] snapshot interval -> 80 frames
+    plot_intv=1250.0,    # [s] snapshot interval -> 120 frames over t_morph=1.5e5 s.
+                         #   v2: 250 -> 1250.  At 250 s the morph phase wrote 600 frames x ~5 ASCII
+                         #   fields x 618k values = 27.8 GB, formatted value by value.  120 frames
+                         #   is already more than a movie needs (v1 movies used 120) and cuts that
+                         #   to 5.6 GB.  Measured strong scaling saturates at 64 ranks (2.83
+                         #   sim-s/wall-s; 128 ranks buys 5%, 256 ranks is 2.7x SLOWER at 2413
+                         #   cells/rank), so wall time has to be bought by doing less work, not by
+                         #   adding cores.
     max_ranks=256,       # a case is rank-limited, not core-limited: at 64 ranks the larger
                          #   case runs 14.7k cells/rank against the smaller one's 6.9k and
                          #   takes twice the wall clock.  PAD_X/PAD_Y allow up to 32x8.
@@ -240,17 +276,42 @@ CONFIG = dict(
 # lam = 520 was abandoned: it blew up at EVERY head_factor tested (0.80-1.558) and with
 # every BC variant, while a straight channel on the same grid ran clean.  lam = 1560 and
 # 1040 are both healthy.  head_factor from the hf=1.0 probes (U_meas 0.721 / 0.695).
-# B3 is the FIX-AMPLITUDE companion to the fix-CURVATURE B1/B2 pair: same wavelength as B2
-# (lam=1560) but its C0 is solved so the built centreline has A=92 m (== B1's amplitude) instead
-# of the shared C0=3e-3.  That makes B3 gentle (R/W=7.05, sinuosity 1.034, theta_m=0.36) and cleanly
-# MONOCHROMATIC -- the un-contaminated run for the linear dispersion (Rossby-vs-gravity) diagnosis,
-# where B2 at theta_m=0.94 (75% of the J0 fold) risks 3k/5k harmonic aliasing into a false free-mode.
-# Comparisons: B1-vs-B2 = wavelength at fixed curvature; B1-vs-B3 = wavelength at fixed amplitude;
-# B2-vs-B3 = curvature/forcing strength at fixed wavelength.  C0 from run_meander amplitude solve;
-# head_factor calibrated for the gentler reach by bank_B3.sh (its own short rigid-bed probe).
-RUNS = [dict(tag="B1", lam=1040.0, head_factor=1.8561),
-        dict(tag="B2", lam=1560.0, head_factor=1.9595),
-        dict(tag="B3", lam=1560.0, head_factor=1.8561, C0=1.41766e-03)]
+# v2 CASE MATRIX -- TWO runs, EQUAL AMPLITUDE, different wavelength.
+#
+#   B1: 8 bends over the 6240 m interior, lam =  780 m
+#   B2: 4 bends over the same interior,   lam = 1560 m
+#
+# Both are built to the SAME amplitude A = 50 m, so C0 is an OUTPUT of (lam, A), solved by
+# C0_for_amplitude() below and pinned here.  Equal A with a 2x wavelength ratio necessarily gives a
+# 4x curvature contrast (kappa ~ A k^2): B1 R/W = 3.28, B2 R/W = 12.52.  A = 50 m is the largest
+# common amplitude that keeps B1 off the tight end -- at A = 80 m B1 falls to R/W = 2.24, tighter
+# than the v1 case that blew up (R/W = 3.33 at MF=5).  MF=1 removes that blow-up mechanism (the bed
+# can no longer outrun the flow), which is what makes R/W = 3.28 acceptable here.
+#
+# head_factor is a SLOPE multiplier (length-independent) and is re-calibrated per case on U; the
+# seeds below are v1's gentle-reach value, since both v2 cases are far less sinuous (1.040, 1.010)
+# than the v1 pair and therefore need less head.
+RUNS = [dict(tag="B1", lam=780.0,  head_factor=1.6915, C0=3.052121e-03),   # 8 bends, R/W 3.28
+        dict(tag="B2", lam=1560.0, head_factor=1.6915, C0=7.985212e-04)]   # 4 bends, R/W 12.52
+
+
+def C0_for_amplitude(lam, A_target, cfg):
+    """Apex curvature C0 that makes the BUILT centreline reach amplitude A_target at wavelength lam.
+
+    The construction prescribes C0 and MEASURES A, so pinning A instead requires this inversion.
+    Solves for the max deflection angle theta_m on the gentle branch (amplitude is monotone in
+    theta_m) and returns C0 = theta_m * k_s = 2 pi J0(theta_m) theta_m / lam.  Used to generate the
+    C0 values pinned in RUNS; kept so they are reproducible rather than magic numbers."""
+    import copy
+    from scipy.special import j0
+    from scipy.optimize import brentq
+
+    def built_A(th_m):
+        c = copy.deepcopy(cfg); c["C0"] = 2.0 * np.pi * j0(th_m) * th_m / lam
+        return amplitude(lam, c)
+
+    th = brentq(lambda t: built_A(t) - A_target, 1e-4, THETA_PEAK * 0.99)
+    return float(2.0 * np.pi * j0(th) * th / lam)
 
 
 def cfg_for(run, cfg=None):
@@ -423,8 +484,12 @@ def section_x(lam, cfg, n_sec=2):
 
 
 def reach_length(cfg):
-    """Down-valley domain length -- the SAME for every run, by construction."""
-    return cfg["lam_ref"] * cfg["n_bends_ref"]
+    """Down-valley domain length -- the SAME for every run, by construction.
+
+    v2: built as ANALYSED interior + two buffers, rather than lam_ref * n_bends_ref, because the
+    interior must hold a whole number of bends of BOTH wavelengths (8 x 780 = 4 x 1560 = 6240 m)
+    while the buffers are sized by the amplitude ramp, not by the wavelength."""
+    return cfg["interior_len"] + 2.0 * cfg["buffer_len"]
 
 
 def fold_margin(lam, cfg):
@@ -648,7 +713,11 @@ C_smg = 0.25
 nu_bkg = 0.0
   ! ---------------- NUMERICS ----------------
 CFL = {CFL}
-FroudeCap = 1.0
+! FroudeCap deliberately NOT set (v2).  It is a non-conservative velocity limiter; with it at 1.0
+! the v1 runs had 41 cells pinned at Fr = 1.000 EXACTLY, all at |n| = 56-57 m (the bank toe) in
+! 0.11-0.14 m of water.  The flow wanted to go supercritical there and was being clamped -- exactly
+! where bank erosion is the quantity of interest.  Left unset the toe is free; the capped-cell
+! count is replaced by a max-Froude gate, and a Froude panel in the plan-view movie.
 MinDepth = {MinDepth}
 MinDepthFrc = {MinDepth}
 VISCOSITY_BREAKING = T

@@ -96,10 +96,12 @@ def _plot(base, args):
     # fixed scales from a late frame
     ul = load(frames[-1][1]); vl = load(sibling(frames[-1][1], "v"))
     smax = float(np.nanpercentile(np.hypot(ul, vl), 99.5))
-    flim = float(np.nanpercentile(np.abs(momflux(ul, vl, tx, ty, chan)), 99.0))
+    interior = (X > buf + 250) & (X < L - buf - 250)      # drop the buffer->erodible transition spike
+    flim = float(np.nanpercentile(np.abs(momflux(ul, vl, tx, ty, chan))[interior], 99.0))
     flim = max(flim, 1e-6)
     zmin = -float(np.nanmax(bed0)) - 0.3; zmax = 0.6
     toe = b + CFG["m_bank"] * (CFG["H_b"] - CFG["h_plain"]) + 8.0
+    xlo, xhi = buf - 100, L - buf + 100                   # crop plan rows to the meandering reach
 
     # sections (same x that 02/04 mark)
     secs = []
@@ -123,14 +125,14 @@ def _plot(base, args):
         bed = load(sibling(up, "dep")) if (ph == "morph" and os.path.exists(sibling(up, "dep"))) else bed0
         fx = momflux(u, v, tx, ty, chan)
 
-        fig = plt.figure(figsize=(14, 9.2), constrained_layout=True)
-        gs = GridSpec(3, 2, figure=fig, height_ratios=[1.0, 1.0, 1.25])
+        fig = plt.figure(figsize=(14, 11.0), constrained_layout=True)
+        gs = GridSpec(4, 2, figure=fig, height_ratios=[1.0, 1.0, 1.0, 1.25])
 
         # -- Row 1: momentum flux (plan) --------------------------------------
         ax0 = fig.add_subplot(gs[0, :])
         pc0 = ax0.pcolormesh(X, Y, fx, cmap="RdBu_r", vmin=-flim, vmax=flim, shading="auto")
         _bank_lines(ax0, X, Y, bed, np.abs(n), bank_lvl, b)
-        _decor(ax0, buf, L, half, y_lab=True)
+        _decor(ax0, buf, L, half, xlo, xhi, y_lab=True)
         fig.colorbar(pc0, ax=ax0, label="$u_s' u_n'$  [m$^2$ s$^{-2}$]  (channel frame)")
         ax0.set_title("cross-channel MOMENTUM FLUX  (yellow = migrating bank, grey = $t{=}0$ bank)",
                       fontsize=9, loc="left")
@@ -142,15 +144,32 @@ def _plot(base, args):
         ax1.quiver(X[::st, ::sty], Y[::st, ::sty], u[::st, ::sty], v[::st, ::sty],
                    scale=smax * 22, width=0.0013, color="w")
         _bank_lines(ax1, X, Y, bed, np.abs(n), bank_lvl, b)
-        _decor(ax1, buf, L, half, y_lab=True)
+        _decor(ax1, buf, L, half, xlo, xhi, y_lab=True)
         fig.colorbar(pc1, ax=ax1, label="total $|U|$  [m/s]")
         ax1.set_title("total VELOCITY  $|U|$  + velocity vectors", fontsize=9, loc="left")
         ax1.set_xlabel("down-valley x [m]")
 
-        # -- Row 3: yOz sections ----------------------------------------------
+        # -- Row 3: FROUDE number (plan) --------------------------------------
+        # FroudeCap was REMOVED in v2, so the toe is free to go supercritical.  In v1 the cap
+        # pinned 41 bank-toe cells at Fr = 1.000 exactly; this panel makes that behaviour visible
+        # instead of hidden.  Diverging map centred on Fr = 1 so critical flow reads at a glance.
+        axF = fig.add_subplot(gs[2, :])
+        Htot = np.maximum(bed + eta, 1e-6)
+        Fr = np.where(spd > 1e-6, spd / np.sqrt(9.81 * Htot), np.nan)
+        pcF = axF.pcolormesh(X, Y, Fr, cmap="coolwarm", vmin=0.0, vmax=2.0, shading="auto")
+        axF.contour(X, Y, np.nan_to_num(Fr), levels=[1.0], colors="k", linewidths=1.2)  # critical
+        _bank_lines(axF, X, Y, bed, np.abs(n), bank_lvl, b)
+        _decor(axF, buf, L, half, xlo, xhi, y_lab=True)
+        fig.colorbar(pcF, ax=axF, label="Froude  $|U|/\\sqrt{gH}$")
+        n_sup = int(np.nansum(Fr > 1.0))
+        axF.set_title(f"FROUDE number  (black = critical Fr=1; no FroudeCap in v2)   "
+                      f"max Fr = {np.nanmax(Fr):.2f},  supercritical cells = {n_sup}",
+                      fontsize=9, loc="left")
+
+        # -- Row 4: yOz sections ----------------------------------------------
         u_s = u * tx + v * ty
         for ci, sc in enumerate(secs[:2]):
-            ax = fig.add_subplot(gs[2, ci])
+            ax = fig.add_subplot(gs[3, ci])
             i = sc["i"]; ks = sc["ksign"]
             sel = np.abs(n[i]) <= toe
             nn = (n[i] * ks)[sel]; o = np.argsort(nn); nn = nn[o]
@@ -159,9 +178,15 @@ def _plot(base, args):
             us = u_s[i][sel][o]
             ax.fill_between(nn, zb, sf, color="#8fbfe0", zorder=1)          # water
             ax.fill_between(nn, zmin, zb, color="#c8a06a", zorder=2)        # bed
-            ax.plot(nn, zb0, color="0.35", lw=1.0, ls="--", zorder=3)       # initial bed
-            ax.plot(nn, zb, color="#5a3c1e", lw=1.3, zorder=4)             # current bed
-            ax.plot(nn, sf, color="#1f6fb2", lw=0.9, zorder=5)            # free surface
+            # SHADE the bank change so it is unmistakable: red = eroded away (bed dropped),
+            # green = deposited (bed rose) -- the band between the initial and current bed.
+            ax.fill_between(nn, zb, zb0, where=(zb < zb0), color="#e23b3b", alpha=0.8,
+                            zorder=3, label="erosion")
+            ax.fill_between(nn, zb0, zb, where=(zb > zb0), color="#2ca02c", alpha=0.8,
+                            zorder=3, label="deposition")
+            ax.plot(nn, zb0, color="0.25", lw=1.1, ls="--", zorder=4)       # initial bed
+            ax.plot(nn, zb, color="#5a3c1e", lw=1.4, zorder=5)             # current bed
+            ax.plot(nn, sf, color="#1f6fb2", lw=0.9, zorder=6)            # free surface
             ax.axvline(0, color="0.6", lw=0.6, ls=":")
             ax.set_xlim(nn.min(), nn.max()); ax.set_ylim(zmin, zmax)
             ax2 = ax.twinx(); ax2.plot(nn, us, "r-", lw=1.2, zorder=6)
@@ -169,7 +194,8 @@ def _plot(base, args):
             if ci == 1:
                 ax2.set_ylabel("total $u_s(n)$ [m/s]", color="r")
             ax.set_title(f"yOz {sc['label']} @ x={sc['x']:.0f} m  "
-                         "(brown=now, grey=$t{=}0$, blue=surface, red=$u_s$)", fontsize=8)
+                         "(red=eroded, green=deposited vs $t{=}0$; blue=surface, red line=$u_s$)",
+                         fontsize=8)
             ax.set_xlabel("n·sgn($\\kappa$) [m]   (<0 outer · >0 inner)")
             if ci == 0:
                 ax.set_ylabel("elevation [m]")
@@ -198,10 +224,10 @@ def _bank_lines(ax, X, Y, bed, absn, lvl, b):
     ax.contour(X, Y, absn, levels=[b], colors="0.45", linewidths=0.6)          # t=0 reference
 
 
-def _decor(ax, buf, L, half, y_lab=False):
+def _decor(ax, buf, L, half, xlo, xhi, y_lab=False):
     for xb in (buf, L - buf):
         ax.axvline(xb, color="r", ls=":", lw=0.7)
-    ax.set_xlim(0, L); ax.set_ylim(-half, half)
+    ax.set_xlim(xlo, xhi); ax.set_ylim(-half, half)
     if y_lab:
         ax.set_ylabel("y [m]")
 

@@ -69,9 +69,14 @@ def main():
     #   dz_b < 0 erosion,  > 0 deposition
     base0 = [load(c["dep"][0]) for c in cs]
     last = [-(load(c["dep"][nfr - 1]) - b0) for c, b0 in zip(cs, base0)]
-    lim = max(np.percentile(np.abs(d), 99.5) for d in last)
+    # colour limit from the CLEAN interior only: a large erosion spike sits at the buffer->erodible
+    # transition (Zs step) and, if included, saturates the scale and washes out the real bar signal.
+    def interior(c):
+        buf = float(c["g"]["buffer_len"]); L = float(c["g"]["L"])
+        return (c["X"] > buf + 250) & (c["X"] < L - buf - 250)
+    lim = max(np.percentile(np.abs(d[interior(c)]), 99.0) for c, d in zip(cs, last))
     lim = max(lim, 1e-3)
-    print(f"fixed colour limit +/-{lim:.3f} m (99.5th percentile of the final frames)")
+    print(f"fixed colour limit +/-{lim:.3f} m (99th pct of the interior; buffer-edge spike excluded)")
 
     Lmax = max(c["L"] for c in cs)
     halves = [float(c["g"]["half"]) for c in cs]

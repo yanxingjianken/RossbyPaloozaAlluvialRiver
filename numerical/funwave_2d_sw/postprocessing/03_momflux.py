@@ -97,11 +97,18 @@ def main():
     if args.max_frames:
         nfr = min(nfr, args.max_frames)
 
-    lim = max(np.nanpercentile(np.abs(flux(c, nfr - 1)[0]), 99.0) for c in cs)
+    # scale from the CLEAN interior: exclude the buffer->erodible transition spike near x=buffer_len
+    def interior_flux(c, f):
+        fx = flux(c, f)[0]
+        buf = float(c["g"]["buffer_len"]); L = float(c["g"]["L"])
+        return np.where((c["X"] > buf + 250) & (c["X"] < L - buf - 250), fx, np.nan)
+    lim = max(np.nanpercentile(np.abs(interior_flux(c, nfr - 1)), 99.0) for c in cs)
     lim = max(lim, 1e-6)
-    print(f"{len(cs)} cases, {nfr} frames, fixed scale +/-{lim:.4f} m^2/s^2")
+    print(f"{len(cs)} cases, {nfr} frames, fixed scale +/-{lim:.4f} m^2/s^2 (interior; buffer spike excluded)")
 
     Lmax = max(float(c["g"]["L"]) for c in cs)
+    bufmin = min(float(c["g"]["buffer_len"]) for c in cs)   # crop off the straight buffers (no bends,
+    x0, x1 = bufmin - 100, Lmax - bufmin + 100              # so u_s'u_n' is identically 0 there)
     halves = [float(c["g"]["half"]) for c in cs]
     os.makedirs(OUT, exist_ok=True)
     mp4 = os.path.join(OUT, f"momflux_all_MF{CFG['Morph_factor']}.mp4")
@@ -123,7 +130,7 @@ def main():
                        colors="0.4", linewidths=0.6)
             for xb in (CFG["buffer_len"], float(c["g"]["L"]) - CFG["buffer_len"]):
                 ax.axvline(xb, color="0.3", ls=":", lw=0.8)
-            ax.set_xlim(0, Lmax); ax.set_ylim(-halves[i], halves[i])
+            ax.set_xlim(x0, x1); ax.set_ylim(-halves[i], halves[i])
             ax.set_aspect("equal"); ax.set_ylabel("y [m]")
             ax.set_title(f"$\\lambda$ = {float(c['g']['lam']):.0f} m   "
                          f"$T_{{shear}}$ = {T:+.3e} m$^2$s$^{{-3}}$   "

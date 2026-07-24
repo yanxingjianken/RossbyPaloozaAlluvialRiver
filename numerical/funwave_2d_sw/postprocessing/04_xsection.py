@@ -106,8 +106,11 @@ def main():
                 surf = np.maximum(surf, zb)             # dry cells: no water
                 ax.fill_between(nn, zb, surf, color="#8fbfe0", zorder=1)      # water
                 ax.fill_between(nn, zmin, zb, color="#c8a06a", zorder=2)      # bed
-                ax.plot(nn, zb0, color="0.35", lw=1.0, ls="--", zorder=3)     # initial bed
-                ax.plot(nn, zb, color="#5a3c1e", lw=1.2, zorder=4)
+                # bank change vs t=0: red = eroded, green = deposited
+                ax.fill_between(nn, zb, zb0, where=(zb < zb0), color="#e23b3b", alpha=0.8, zorder=3)
+                ax.fill_between(nn, zb0, zb, where=(zb > zb0), color="#2ca02c", alpha=0.8, zorder=3)
+                ax.plot(nn, zb0, color="0.25", lw=1.0, ls="--", zorder=4)     # initial bed
+                ax.plot(nn, zb, color="#5a3c1e", lw=1.3, zorder=5)
                 ax.axvline(0, color="0.6", lw=0.6, ls=":")
                 ax.set_xlim(nn.min(), nn.max()); ax.set_ylim(zmin, zmax)
                 ax.set_title(f"{c['tag'][:16]}  {s['label']} @ x={s['x']:.0f} m", fontsize=9)
