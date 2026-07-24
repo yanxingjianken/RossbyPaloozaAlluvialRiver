@@ -126,23 +126,43 @@ def epsilon_table(d: geo.Design, m: int) -> dict:
 # --------------------------------------------------------------------------- #
 #  The BVP
 # --------------------------------------------------------------------------- #
-def _uh_of(hh, vh, ntil, p: NoteParams):
-    """Solve (28) algebraically for uh."""
+def _uh_of(hh, vh, ntil, p: NoteParams, lid: float = 1.0):
+    """Solve (28) algebraically for uh.
+
+    ``lid`` scales the ONE term of (28) that carries the bare ratio
+    ``eps2/eps1`` -- the depth-drag term ``Fc (eps2/eps1) hh/xi**2``.  It is the
+    s-momentum half of the rigid-lid knob (see :func:`solve_mode`): ``lid=1`` is
+    the full system (28); ``lid=0`` is the limit-2 s-momentum (note eq. 23),
+    which drops exactly this term while KEEPING the pressure/superelevation term
+    ``(eps2/(eps1 Fr**2)) i k hh`` (that one carries ``eps2/(eps1 Fr**2)``, O(1)
+    in BOTH limits, so it is never scaled).
+    """
     xi = p.xi(ntil)
     dxi = p.dxi(ntil)
     num = -(vh * dxi
             + (p.eps2 / (p.eps1 * p.Fr**2)) * 1j * p.k * hh
-            - p.Fc * (p.eps2 / p.eps1) * hh / xi**2)
+            - lid * p.Fc * (p.eps2 / p.eps1) * hh / xi**2)
     den = 1j * p.k * xi + 2.0 * p.Fc / xi
     return num / den
 
 
-def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10):
+def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10, lid: float = 1.0):
     """Solve (28)-(30) for one streamwise mode.
 
     Returns ``(ntil, uh, vh, hh)`` as complex arrays.
     State vector for :func:`solve_bvp` is the real/imag split of ``(hh, q)``
     with ``q = xi**2 * vh``; ``solve_bvp`` is real-only.
+
+    ``lid`` is the **rigid-lid / gravity-reduction knob**.  It multiplies the
+    exactly two terms that carry the bare ratio ``eps2/eps1`` (the free-surface
+    divergence in continuity (30) and the depth-drag in s-momentum (28)) -- the
+    two terms the note's limit 2 orders out (``eps2/eps1 ~ eps``).  ``lid=1`` is
+    the FULL shallow-water system (28)-(30) = limit 1 / Thetis; ``lid=0`` is the
+    non-divergent limit-2 system (notes eqs 23-25) whose curl is the QGPV /
+    shear-Rossby equation (26).  Sweeping ``lid`` 1->0 therefore interpolates
+    continuously between the two flow models on ONE channel, and isolates which
+    term flips the near-bank ``u'_b`` phase.  The pressure/superelevation terms
+    (``eps2/(eps1 Fr**2)``) are NEVER touched -- they survive both limits.
     """
     ntil0 = np.linspace(-1.0, 1.0, n)
 
@@ -151,14 +171,15 @@ def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10):
         q = y[2] + 1j * y[3]
         xi = p.xi(t)
         vh = q / xi**2
-        uh = _uh_of(hh, vh, t, p)
-        # (29) -> hh'
+        uh = _uh_of(hh, vh, t, p, lid=lid)
+        # (29) -> hh'  (the cross-channel superelevation balance; the alpha**2
+        # factors are geometric, not a limit choice, so lid never touches it)
         dhh = ((p.Ci / (p.eps1 * p.alpha**2)) * xi**2
                - 1j * p.k * xi * vh
                - p.Fc * vh / xi) * (p.eps1 * p.Fr**2 * p.alpha**2 / p.eps2)
-        # (30) -> q'
+        # (30) -> q'   free-surface divergence term scaled by lid (eps2/eps1)
         dq = -(1j * p.k * xi**2 * uh
-               + (p.eps2 / p.eps1) * 1j * p.k * xi * hh)
+               + lid * (p.eps2 / p.eps1) * 1j * p.k * xi * hh)
         return np.vstack([dhh.real, dhh.imag, dq.real, dq.imag])
 
     def bc(ya, yb):
@@ -175,7 +196,7 @@ def solve_mode(p: NoteParams, n: int = 801, tol: float = 1e-10):
     hh = y[0] + 1j * y[1]
     q = y[2] + 1j * y[3]
     vh = q / p.xi(ntil) ** 2
-    uh = _uh_of(hh, vh, ntil, p)
+    uh = _uh_of(hh, vh, ntil, p, lid=lid)
     return ntil, uh, vh, hh
 
 
