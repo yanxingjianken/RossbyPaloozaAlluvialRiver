@@ -1,0 +1,7 @@
+thetis-src/
+outputs/
+__pycache__/
+*.pyc
+*.aux
+*.log
+*.out

@@ -210,11 +210,24 @@ def main():
     t_chunk = cfg["t_morph"] / args.chunks
     ini_from = ("../spinup/output", last)
 
+    # The bed must be CARRIED ACROSS restarts.  FUNWAVE computes Depth = Depth_ini + Zb*MF and
+    # re-reads DEPTH_FILE on every start, resetting Zb to 0 -- so leaving DEPTH_FILE pointed at the
+    # original bathymetry silently discards each chunk's morphology.  (Measured: with the original
+    # file, chunks 1-5 all ended at max|dep - depth.txt| = 0.44714 m instead of accumulating, and
+    # dep_first == depth.txt every time.  Every chunk logged "morph: OK".)  So after each chunk the
+    # evolved bed is written to bathy/depth_cur.txt and DEPTH_FILE is repointed at it.
+    # bathy/depth.txt is left untouched as the t=0 reference the diagnostics difference against.
+    depth_cur = os.path.join(base, "bathy", "depth_cur.txt")
+
     for ic in range(args.chunks):
         txt = tpl
         for vv in ("eta", "u", "v"):
             txt = txt.replace(f"@INI@/{vv}.txt", f"{ini_from[0]}/{vv}_{ini_from[1]}")
         txt = txt.replace(f"TOTAL_TIME = {cfg['t_morph']}", f"TOTAL_TIME = {t_chunk}")
+        if ic > 0:
+            assert os.path.exists(depth_cur), "evolved bed missing; refusing to restart from t=0 bed"
+            txt = txt.replace("DEPTH_FILE = ../bathy/depth.txt",
+                              "DEPTH_FILE = ../bathy/depth_cur.txt")
         pathlib.Path(base + "/morph/input.txt").write_text(txt)
 
         ok = rm.launch(base, "morph", nr, cfg)
@@ -229,7 +242,17 @@ def main():
 
         last = os.path.basename(outs[-1]).split("_")[1]
         ini_from = ("output", last)
+
+        # carry the evolved bed forward (see the DEPTH_FILE note above)
+        depf = base + f"/morph/output/dep_{last}"
+        if os.path.exists(depf):
+            shutil.copy2(depf, depth_cur)
+            z_now = np.loadtxt(depf); z_ini = np.loadtxt(base + "/bathy/depth.txt")
+            dz_max = float(np.abs(z_now - z_ini).max())
+        else:
+            dz_max = float("nan")
         gd = gates(base, "morph", cfg, n0)
+        gd["dz_max_cum"] = round(dz_max, 4)      # MUST grow chunk to chunk, else the bed is resetting
         print(f"  chunk {ic+1}/{args.chunks} t={(ic+1)*t_chunk:.0f}s {'OK' if ok else 'STOPPED'} {gd}", flush=True)
 
         # -- rebuild the channel geometry from the CURRENT bed --------------
