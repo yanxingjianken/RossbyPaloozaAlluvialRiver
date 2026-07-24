@@ -1,0 +1,97 @@
+
+==============================================================================
+lam1560_C0p80e-3_U0p85_hf1p692_D50500um_MF8
+==============================================================================
+  [PASS] G1 flow is steady at the end of spin-up   max |dspeed| between the last two snapshots = 0.06% of the mean
+  [PASS] G2 mean channel speed = design U   0.860 m/s vs design 0.850 m/s (+1.2%)
+  [PASS] G2 depth-averaged momentum balance Cd U^2 = g H S   Cd<U^2>=1.185e-03, g<H>S=1.466e-03 m2/s2  (23.7% apart)
+  [PASS] G3 morph phase terminated normally
+  [PASS] G4 no erosion in the Hard_bottom buffer (Zs caps erosion only)   buffer dDepth in [+0.000, +0.000] m (+ = erosion); 0 cells accreting
+  [PASS] G4 first interior bend not dominated by the inlet artefact   <|ddep|> first interior bend / rest of the interior = 1.79
+  [PASS] G5 morphodynamic Courant: bed move < 1e-3 H per hydro step   2.7e-05 H per 0.20s step (MF=8, Morph_interval=30s); blows up above ~1e-3
+  [PASS] G5 bed change per output interval < 15% of H   max |ddep| per 1000 s = 13.4% of H_c
+  [PASS] G5 total bed change is O(H), i.e. the run spans ~one bar   max |total ddep| = 116% of H_c over 6 morphological days
+  [PASS] G6 shelf carries a small fraction of the discharge   0.7% of the total (design estimate ~4%)
+  [PASS] G6 shelf is fully wet (no wet/dry line on the bank)   100.00% wet
+  [FAIL] G7 the shelf bed does not move (tau < tau_cr there)   max |ddep| on the shelf = 0.1026 m over the whole morph phase
+  [INFO] bank-face bed change (0.8b < |n| <= 1.4b): mean -0.1359 m, max erosion +0.3883 m -- this is the bank retreat the shelf design exists to preserve
+  [INFO] mean bed change over the interior bends (+ = erosion, - = deposition)
+         OUTER bank  (n*sgn(kappa) < -b/2): -0.0106 m
+         mid-channel (|n*sgn(kappa)| < b/2): +0.2331 m
+         INNER bank  (n*sgn(kappa) > +b/2): +0.0473 m
+         point bar would be INNER < 0 (deposition) with OUTER > 0 (scour): ABSENT   <- prediction was ABSENT
+
+==============================================================================
+lam780_C3p05e-3_U0p85_hf1p692_D50500um_MF8
+==============================================================================
+  [PASS] G1 flow is steady at the end of spin-up   max |dspeed| between the last two snapshots = 0.06% of the mean
+  [PASS] G2 mean channel speed = design U   0.843 m/s vs design 0.850 m/s (-0.9%)
+  [FAIL] G2 depth-averaged momentum balance Cd U^2 = g H S   Cd<U^2>=1.162e-03, g<H>S=1.467e-03 m2/s2  (26.2% apart)
+  [FAIL] G3 morph phase terminated normally
+  [PASS] G4 no erosion in the Hard_bottom buffer (Zs caps erosion only)   buffer dDepth in [+0.000, +0.000] m (+ = erosion); 0 cells accreting
+  [PASS] G4 first interior bend not dominated by the inlet artefact   <|ddep|> first interior bend / rest of the interior = 1.47
+  [PASS] G5 morphodynamic Courant: bed move < 1e-3 H per hydro step   3.5e-05 H per 0.20s step (MF=8, Morph_interval=30s); blows up above ~1e-3
+  [FAIL] G5 bed change per output interval < 15% of H   max |ddep| per 1000 s = 17.5% of H_c
+  [PASS] G5 total bed change is O(H), i.e. the run spans ~one bar   max |total ddep| = 118% of H_c over 6 morphological days
+  [PASS] G6 shelf carries a small fraction of the discharge   0.6% of the total (design estimate ~4%)
+  [PASS] G6 shelf is fully wet (no wet/dry line on the bank)   100.00% wet
+  [FAIL] G7 the shelf bed does not move (tau < tau_cr there)   max |ddep| on the shelf = 0.5552 m over the whole morph phase
+  [INFO] bank-face bed change (0.8b < |n| <= 1.4b): mean -0.0449 m, max erosion +1.1651 m -- this is the bank retreat the shelf design exists to preserve
+  [INFO] mean bed change over the interior bends (+ = erosion, - = deposition)
+         OUTER bank  (n*sgn(kappa) < -b/2): -0.1121 m
+         mid-channel (|n*sgn(kappa)| < b/2): +0.1221 m
+         INNER bank  (n*sgn(kappa) > +b/2): +0.2836 m
+         point bar would be INNER < 0 (deposition) with OUTER > 0 (scour): ABSENT   <- prediction was ABSENT
+
+==============================================================================
+lam1560_C0p80e-3_U0p85_hf1p692_D50500um_MF8
+==============================================================================
+  [PASS] G1 flow is steady at the end of spin-up   max |dspeed| between the last two snapshots = 0.06% of the mean
+  [PASS] G2 mean channel speed = design U   0.860 m/s vs design 0.850 m/s (+1.2%)
+  [PASS] G2 depth-averaged momentum balance Cd U^2 = g H S   Cd<U^2>=1.184e-03, g<H>S=1.466e-03 m2/s2  (23.8% apart)
+  [PASS] G3 morph phase terminated normally
+  [PASS] G4 no erosion in the Hard_bottom buffer (Zs caps erosion only)   buffer dDepth in [+0.000, +0.000] m (+ = erosion); 0 cells accreting
+  [PASS] G4 first interior bend not dominated by the inlet artefact   <|ddep|> first interior bend / rest of the interior = 1.78
+  [PASS] G5 morphodynamic Courant: bed move < 1e-3 H per hydro step   2.8e-05 H per 0.20s step (MF=8, Morph_interval=30s); blows up above ~1e-3
+  [PASS] G5 bed change per output interval < 15% of H   max |ddep| per 1000 s = 14.0% of H_c
+  [PASS] G5 total bed change is O(H), i.e. the run spans ~one bar   max |total ddep| = 117% of H_c over 6 morphological days
+  [PASS] G6 shelf carries a small fraction of the discharge   0.7% of the total (design estimate ~4%)
+  [PASS] G6 shelf is fully wet (no wet/dry line on the bank)   100.00% wet
+  [FAIL] G7 the shelf bed does not move (tau < tau_cr there)   max |ddep| on the shelf = 0.1014 m over the whole morph phase
+  [INFO] bank-face bed change (0.8b < |n| <= 1.4b): mean -0.1325 m, max erosion +0.4138 m -- this is the bank retreat the shelf design exists to preserve
+  [INFO] mean bed change over the interior bends (+ = erosion, - = deposition)
+         OUTER bank  (n*sgn(kappa) < -b/2): +0.0358 m
+         mid-channel (|n*sgn(kappa)| < b/2): +0.2250 m
+         INNER bank  (n*sgn(kappa) > +b/2): +0.0210 m
+         point bar would be INNER < 0 (deposition) with OUTER > 0 (scour): ABSENT   <- prediction was ABSENT
+
+==============================================================================
+lam780_C3p05e-3_U0p85_hf1p692_D50500um_MF8
+==============================================================================
+  [PASS] G1 flow is steady at the end of spin-up   max |dspeed| between the last two snapshots = 0.06% of the mean
+  [PASS] G2 mean channel speed = design U   0.833 m/s vs design 0.850 m/s (-1.9%)
+  [FAIL] G2 depth-averaged momentum balance Cd U^2 = g H S   Cd<U^2>=1.141e-03, g<H>S=1.468e-03 m2/s2  (28.7% apart)
+  [FAIL] G3 morph phase terminated normally
+  [PASS] G4 no erosion in the Hard_bottom buffer (Zs caps erosion only)   buffer dDepth in [+0.000, +0.000] m (+ = erosion); 0 cells accreting
+  [PASS] G4 first interior bend not dominated by the inlet artefact   <|ddep|> first interior bend / rest of the interior = 1.40
+  [PASS] G5 morphodynamic Courant: bed move < 1e-3 H per hydro step   3.2e-05 H per 0.20s step (MF=8, Morph_interval=30s); blows up above ~1e-3
+  [FAIL] G5 bed change per output interval < 15% of H   max |ddep| per 1000 s = 16.1% of H_c
+  [PASS] G5 total bed change is O(H), i.e. the run spans ~one bar   max |total ddep| = 112% of H_c over 6 morphological days
+  [PASS] G6 shelf carries a small fraction of the discharge   0.6% of the total (design estimate ~4%)
+  [PASS] G6 shelf is fully wet (no wet/dry line on the bank)   100.00% wet
+  [FAIL] G7 the shelf bed does not move (tau < tau_cr there)   max |ddep| on the shelf = 1.6112 m over the whole morph phase
+  [INFO] bank-face bed change (0.8b < |n| <= 1.4b): mean -0.0367 m, max erosion +1.1866 m -- this is the bank retreat the shelf design exists to preserve
+  [INFO] mean bed change over the interior bends (+ = erosion, - = deposition)
+         OUTER bank  (n*sgn(kappa) < -b/2): -0.0435 m
+         mid-channel (|n*sgn(kappa)| < b/2): +0.1276 m
+         INNER bank  (n*sgn(kappa) > +b/2): +0.2207 m
+         point bar would be INNER < 0 (deposition) with OUTER > 0 (scour): ABSENT   <- prediction was ABSENT
+
+==============================================================================
+CROSS-RUN: the two cases must share the drive
+==============================================================================
+  [FAIL] A k^2 identical across runs   C = 8.111116e-04 1/m
+  [PASS] wavenumbers differ   k ratio = 2.00
+  [PASS] same morphological duration   6 days for both
+
+11 FAILED: G7 the shelf bed does not move (tau < tau_cr there); G2 depth-averaged momentum balance Cd U^2 = g H S; G3 morph phase terminated normally; G5 bed change per output interval < 15% of H; G7 the shelf bed does not move (tau < tau_cr there); G7 the shelf bed does not move (tau < tau_cr there); G2 depth-averaged momentum balance Cd U^2 = g H S; G3 morph phase terminated normally; G5 bed change per output interval < 15% of H; G7 the shelf bed does not move (tau < tau_cr there); A k^2 identical across runs
