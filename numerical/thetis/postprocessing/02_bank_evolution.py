@@ -247,7 +247,7 @@ def _apex_x(d: geo.Design, m: int) -> float:
 
 def main():
     args = sys.argv[1:]
-    if args and args[0].startswith("A"):        # first arg may be the case
+    if args and os.path.isdir(os.path.join(pp.HERE, "experiments", args[0])):
         pp.set_case(args.pop(0))
     tags = args or ["m4", "m8"]
     for tag in tags:

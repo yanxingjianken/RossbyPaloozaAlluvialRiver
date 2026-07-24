@@ -58,17 +58,20 @@ def ikeda_rates(m):
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1].startswith("A"):
+    if len(sys.argv) > 1 and os.path.isdir(os.path.join(pp.HERE, "experiments", sys.argv[1])):
         pp.set_case(sys.argv[1])
     print("=" * 74)
     print(f"03_growth_migration.py -- amplify/decay and up/downstream [{pp.CASE}]")
     print("=" * 74)
-    series = {m: load_series(f"m{m}") for m in (4, 8)}
+    ms = sorted(int(re.search(r"run_m(\d+)\.npz", f).group(1))
+              for f in glob.glob(os.path.join(pp.OUT_DIR, "run_m*.npz")))
+    series = {m: load_series(f"m{m}") for m in ms}
     if all(v is None for v in series.values()):
         raise SystemExit("no A(t) data -- run meander_thetis.py with flow_solver='steady'")
 
     fig, (axg, axm) = plt.subplots(1, 2, figsize=(14.0, 5.4))
-    colours = {4: "#1f6fb4", 8: "#c0392b"}
+    palette = ["#1f6fb4", "#c0392b", "#2ca02c", "#9467bd", "#e67e22"]
+    colours = {m: palette[i % len(palette)] for i, m in enumerate(ms)}
 
     for m, S in series.items():
         if S is None:
