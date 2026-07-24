@@ -21,17 +21,24 @@ See `../param_search.py` for the analytic verdict and
    flow) — both in the full nonlinear 2-D SWE.  Confirms Ikeda's thesis that the
    `A` (secondary-flow / vortical) term, not gravity, drives meandering.
 
-2. **The bank closure sets the migration direction.**  Every Thetis case — limit
-   1 & 2, steady & unsteady solver, Fr 0.09–0.30 — migrates DOWNSTREAM, because
-   Thetis uses Ikeda's near-bank-velocity closure (`γ ∂_t y = E u'_b`).  Changing
-   the flow *regime* (limit 1 → 2) or *solver* does not flip it.  UPSTREAM
-   migration appears only with the deck's 3-level **vorticity** closure
-   (`c₀ = −E D/γ`, `../vorticity_meander`), archived under
-   `rossby_limit2/vorticity_upstream_reference/`.
+2. **The migration direction lives in the FLOW-RESPONSE phase, not the erosion
+   law.**  The erosion law is UNIFIED — `river.pdf` p.19 == Ikeda `γ ∂_t y = E u'_b`
+   with `E = ε C_f` (proved in `docs/River_Meandering_SW_corrected.pdf`, eqs
+   31-35).  So up/down cannot come from the erosion closure; it comes from the
+   PHASE of the near-bank velocity `u'_b` relative to the bend curvature, which
+   is set by the *flow model*:
+   - Thetis full 2-D SWE gives a DOWNSTREAM-lagged `u'_b` in EVERY case tested
+     (limit 1 & 2, steady & unsteady, Fr 0.09-0.30) -> downstream migration
+     (verified by convention-free d(crest)/dt on clean-amplitude frames).
+   - The deck's 3-level QGPV model (`../vorticity_meander`) gives an upstream
+     `u'_b` phase -> `c₀ = -E D/γ < 0`; but it is a *cross-channel-truncated*
+     reduction, archived under `rossby_limit2/vorticity_upstream_reference/`.
 
-The SW-note limit-2 QGPV equation IS a Rossby wave mathematically, but the 2-D
-SWE meander it drives still goes downstream; upstream is a property of the
-vorticity bank closure, not the flow's Rossby/gravity regime.
+The SW-note limit-2 QGPV equation IS a Rossby wave mathematically.  **Open
+question:** does the *exact* 2-D SWE at limit 2 give an upstream `u'_b` phase, or
+is the deck's upstream a 3-level-truncation artefact?  My α≈1, Fr=0.09 SWE runs
+give downstream — either not deep enough in the limit, or the full SWE genuinely
+differs from the 3-level reduction.
 
 ## Reproduce
 

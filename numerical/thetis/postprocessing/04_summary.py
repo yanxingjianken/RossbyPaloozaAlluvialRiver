@@ -71,15 +71,13 @@ def main():
     axm.set_xlim(0, 10)
     axm.set_ylim(0, 10)
     axm.axis("off")
-    axm.set_title("(b) migration direction is set by the BANK CLOSURE")
+    axm.set_title(r"(b) same erosion law $\gamma\partial_t y=E u_b'$; direction = FLOW-RESPONSE phase")
 
     # two columns: near-bank (Ikeda) closure -> downstream ; vorticity closure -> upstream
     axm.axvline(5.0, color="0.7", lw=1.0)
-    axm.text(2.5, 9.4, "near-bank velocity closure\n"
-             r"$\gamma\,\partial_t y = E\,u'_b$  (Ikeda)", ha="center",
+    axm.text(2.5, 9.4, r"$u'_b$ from gravity/friction flow" "\n(Ikeda, limit 1)", ha="center",
              fontsize=10.5, color="#333")
-    axm.text(7.5, 9.4, "vorticity closure\n"
-             r"$c_0 = -E D/\gamma$  (deck 3-level)", ha="center",
+    axm.text(7.5, 9.4, r"$u'_b$ from QGPV/Rossby flow" "\n(deck 3-level, limit 2)", ha="center",
              fontsize=10.5, color="#333")
     axm.annotate("", xy=(4.4, 5.0), xytext=(0.8, 5.0),
                  arrowprops=dict(arrowstyle="-|>", color="#1f6fb4", lw=2.5))
@@ -90,25 +88,26 @@ def main():
     axm.text(7.4, 5.4, "UPSTREAM", ha="center", color="#c0392b",
              fontsize=12, fontweight="bold")
 
-    left = ("Thetis 2-D SWE  (this package)\n"
-            "- limit 1  ($\\alpha$=0.26)  &  limit 2 ($\\alpha\\approx$1)\n"
-            "- steady (B)  &  unsteady (A)\n"
-            "- Fr = 0.09 - 0.30\n"
-            "- A = 0 (decay)  &  A = 2.89 (amplify)\n"
+    left = ("Thetis full 2-D SWE  (this package)\n"
+            r"$u'_b$ DOWNSTREAM-lagged phase in EVERY case:" "\n"
+            "- limit 1 ($\\alpha$=0.26) & limit 2 ($\\alpha\\approx$1)\n"
+            "- steady (B) & unsteady (A);  Fr 0.09-0.30\n"
+            "- A=0 (decay) & A=2.89 (amplify)\n"
             "=> ALL downstream")
     axm.text(2.5, 3.1, left, ha="center", va="center", fontsize=9,
              bbox=dict(boxstyle="round", fc="#eaf2fb", ec="#1f6fb4"))
     right = ("vorticity_meander /\ndeliverable1_noboru_model\n"
-             "(SW-note limit-2 QGPV,\nthe 3-level erodible-bank model)\n"
-             "=> upstream ($c_0<0$)")
+             "(3-level QGPV reduction,\ncross-channel TRUNCATED)\n"
+             r"$u'_b$ upstream phase => $c_0<0$")
     axm.text(7.5, 3.1, right, ha="center", va="center", fontsize=9,
              bbox=dict(boxstyle="round", fc="#fbecea", ec="#c0392b"))
-    axm.text(5.0, 0.7, "Changing the flow REGIME (limit 1 -> 2) or SOLVER does not "
-             "flip the direction;\nonly changing the bank-erosion CLOSURE does.",
-             ha="center", fontsize=9.5, style="italic", color="0.25")
+    axm.text(5.0, 0.55, "The erosion law is UNIFIED (river.pdf p19 == Ikeda, E=eps*Cf; corrected PDF).\n"
+             "Direction lives in the FLOW-RESPONSE phase of u'_b, not the erosion law.\n"
+             "Open: does the EXACT 2-D SWE limit-2 give upstream, or is it a 3-level artefact?",
+             ha="center", fontsize=8.8, style="italic", color="0.25")
 
-    fig.suptitle("Meandering-channel morphodynamics in Thetis: A sets growth, "
-                 "the bank closure sets migration direction",
+    fig.suptitle("Meandering-channel morphodynamics in Thetis: A sets growth; "
+                 "direction = flow-response phase (same erosion law)",
                  fontsize=13, y=1.02)
     pp.set_case("A0_incised")            # write to a stable top-level-ish place
     out = os.path.join(pp.HERE, "experiments", "summary_growth_and_closure.png")

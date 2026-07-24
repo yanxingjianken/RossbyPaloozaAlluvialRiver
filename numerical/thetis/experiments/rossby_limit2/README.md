@@ -18,12 +18,19 @@ the deck predicts migrates **upstream**.
 Putting Thetis in limit 2 (alpha~1, low Fr) does **not** flip the meander
 upstream -- with **either** the steady **or** the unsteady solver.  So the
 `dt`/steady-vs-unsteady hypothesis is ruled out empirically.  The migration
-direction is set by the **bank-erosion closure**, not the flow regime or solver:
+direction is set by the **flow-response phase of u'_b** (NOT the erosion law, which is
+unified -- river.pdf p19 == Ikeda, E=eps*Cf, corrected PDF eqs 31-35):
 
-- Ikeda's near-bank-velocity closure (what Thetis uses) -> **downstream**, in
-  every regime tested (limit 1 & 2, steady & unsteady, Fr 0.09-0.30).
-- The deck's 3-level **vorticity** closure -> **upstream** (`c0 = -E D/gamma`),
-  archived here from `../../vorticity_meander/figures/fig09_upstream_speed_map.png`.
+- Thetis full 2-D SWE -> **downstream-lagged u'_b phase** in every regime tested
+  (limit 1 & 2, steady & unsteady, Fr 0.09-0.30) -> downstream (verified by
+  convention-free d(crest)/dt on clean-amplitude frames).
+- The deck's 3-level QGPV **reduction** (cross-channel truncated) -> **upstream
+  u'_b phase** (`c0 = -E D/gamma < 0`), archived from
+  `../../vorticity_meander/figures/fig09_upstream_speed_map.png`.
+
+Same erosion law in both; the difference is how the FLOW computes u'_b.
+**Open:** does the exact 2-D SWE limit-2 give upstream, or is the deck's upstream
+a 3-level-truncation artefact?  The alpha~1 SWE runs here say downstream.
 
 The SW-note limit-2 QGPV equation *is* a Rossby wave mathematically; but the 2-D
 SWE meander it drives (via Ikeda's near-bank law) still migrates downstream.  The
